@@ -296,7 +296,13 @@ async function handleTicketClaim(interaction) {
     });
   }
 
-  await interaction.deferUpdate();
+  try {
+    if (!interaction.deferred && !interaction.replied) {
+      await interaction.deferUpdate();
+    }
+  } catch (err) {
+    if (err.code === 40060 || err.code === 10062) return;
+  }
 
   const config = getConfig();
   const typeConfig = config.ticketTypes.find(t => t.id === metadata.typeId) || {
@@ -358,7 +364,13 @@ async function handleTicketUnclaim(interaction) {
     });
   }
 
-  await interaction.deferUpdate();
+  try {
+    if (!interaction.deferred && !interaction.replied) {
+      await interaction.deferUpdate();
+    }
+  } catch (err) {
+    if (err.code === 40060 || err.code === 10062) return;
+  }
 
   const config = getConfig();
   const typeConfig = config.ticketTypes.find(t => t.id === metadata.typeId) || {

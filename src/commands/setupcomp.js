@@ -62,7 +62,13 @@ module.exports = {
       });
     }
 
-    await interaction.deferReply({ ephemeral: true });
+    try {
+      if (!interaction.deferred && !interaction.replied) {
+        await interaction.deferReply({ ephemeral: true });
+      }
+    } catch (err) {
+      if (err.code === 40060 || err.code === 10062) return;
+    }
 
     const guild = interaction.guild;
     const action = interaction.options.getString('action') || 'ban';
