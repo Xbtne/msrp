@@ -28,6 +28,17 @@ http.createServer((req, res) => {
   console.log(`🌐 HTTP health check server listening on port ${port}`);
 });
 
+// Auto keep-alive ping to prevent Render free tier from sleeping
+const externalUrl = process.env.RENDER_EXTERNAL_URL || process.env.PUBLIC_URL;
+if (externalUrl) {
+  console.log(`📡 Auto keep-alive enabled for URL: ${externalUrl}`);
+  setInterval(async () => {
+    try {
+      await fetch(externalUrl);
+    } catch (e) {}
+  }, 8 * 60 * 1000); // Ping every 8 minutes
+}
+
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
