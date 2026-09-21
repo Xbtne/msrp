@@ -31,6 +31,10 @@ const client = new Client({
   }
 });
 
+// Explicitly set tokens to prevent unauthenticated REST requests
+client.rest.setToken(token);
+client.token = token;
+
 // Process-level error protection
 process.on('unhandledRejection', error => {
   console.error('Unhandled promise rejection:', error);
@@ -76,6 +80,10 @@ for (const file of eventFiles) {
 
 // Ready event
 client.once(Events.ClientReady, async () => {
+  // Re-verify token on rest
+  client.rest.setToken(token);
+  client.token = token;
+
   console.log(`=========================================`);
   console.log(`🤖 Logged in as: ${client.user.tag}`);
   console.log(`🆔 Bot ID: ${client.user.id}`);
@@ -96,7 +104,14 @@ client.once(Events.ClientReady, async () => {
   }
 });
 
-client.login(token).catch(err => {
-  console.error('❌ Login failed. Check your bot token and intents in Discord Developer Portal:', err);
-});
+async function startBot() {
+  try {
+    await client.login(token);
+  } catch (err) {
+    console.error('❌ Login error, retrying in 4 seconds...', err.message);
+    setTimeout(startBot, 4000);
+  }
+}
+
+startBot();
 

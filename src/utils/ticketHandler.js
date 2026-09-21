@@ -159,6 +159,13 @@ async function handleTicketCreate(interaction, typeId) {
   await interaction.deferReply({ ephemeral: true });
 
   try {
+    if (!interaction.client.token && process.env.DISCORD_TOKEN) {
+      interaction.client.token = process.env.DISCORD_TOKEN;
+      interaction.client.rest.setToken(process.env.DISCORD_TOKEN);
+    }
+
+    const botUserId = interaction.client.user.id;
+
     // Determine permissions
     const permissionOverwrites = [
       {
@@ -176,7 +183,7 @@ async function handleTicketCreate(interaction, typeId) {
         ]
       },
       {
-        id: guild.members.me.id,
+        id: botUserId,
         allow: [
           PermissionFlagsBits.ViewChannel,
           PermissionFlagsBits.SendMessages,
