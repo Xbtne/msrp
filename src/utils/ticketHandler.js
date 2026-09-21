@@ -429,24 +429,102 @@ async function handleTicketConfirmClose(interaction) {
     });
 
     const config = getConfig();
+    const typeConfig = config.ticketTypes.find(t => t.id === metadata?.typeId);
+
+    // Fetch messages to compute message statistics
+    const messageCounts = {};
+    let totalMessages = 0;
+    try {
+      let lastId;
+      while (true) {
+        const options = { limit: 100 };
+        if (lastId) options.before = lastId;
+        const fetched = await channel.messages.fetch(options);
+        if (fetched.size === 0) break;
+
+        for (const msg of fetched.values()) {
+          if (!msg.author.bot) {
+            const uid = msg.author.id;
+            messageCounts[uid] = (messageCounts[uid] || 0) + 1;
+            totalMessages++;
+          }
+        }
+
+        lastId = fetched.last().id;
+        if (fetched.size < 100) break;
+      }
+    } catch (countErr) {
+      console.warn('Error fetching message stats for log:', countErr);
+    }
+
+    // Build message breakdown string
+    let messageBreakdown = '';
+    const sortedParticipants = Object.entries(messageCounts).sort(([, a], [, b]) => b - a);
+    if (sortedParticipants.length > 0) {
+      messageBreakdown = sortedParticipants
+        .map(([uid, count]) => `• <@${uid}> — **${count}** message${count === 1 ? '' : 's'}`)
+        .join('\n');
+      messageBreakdown += `\n\n📊 **Total User Messages:** ${totalMessages}`;
+    } else {
+      messageBreakdown = '*No user messages sent.*';
+    }
 
     // Send transcript to log channel if configured
     if (config.logChannelId) {
-      const logChannel = interaction.guild.channels.cache.get(config.logChannelId);
+      const logChannel =
+        interaction.guild.channels.cache.get(config.logChannelId) ||
+        (await interaction.guild.channels.fetch(config.logChannelId).catch(() => null));
+
       if (logChannel) {
         const logEmbed = new EmbedBuilder()
           .setTitle('📁 Ticket Closed & Transcript Logged')
-          .setDescription(
-            `• **Channel:** \`${channel.name}\`\n` +
-            `• **Closed By:** <@${interaction.user.id}> (${interaction.user.tag})\n` +
-            `• **Ticket Owner:** ${metadata ? `<@${metadata.ownerId}>` : 'Unknown'}\n` +
-            `• **Type:** ${metadata ? metadata.typeId : 'Unknown'}\n` +
-            `• **Claimed By:** ${metadata && metadata.claimedBy !== 'None' ? `<@${metadata.claimedBy}>` : 'Unclaimed'}`
-          )
           .setColor(0x5865F2)
+          .addFields(
+            {
+              name: '🏷️ Ticket Name',
+              value: `\`#${channel.name}\``,
+              inline: true
+            },
+            {
+              name: '🆔 Ticket ID',
+              value: `\`${channel.id}\``,
+              inline: true
+            },
+            {
+              name: '📂 Category',
+              value: typeConfig ? `${typeConfig.emoji || ''} ${typeConfig.label}` : (metadata?.typeId || 'General'),
+              inline: true
+            },
+            {
+              name: '👤 Ticket Owner',
+              value: metadata?.ownerId ? `<@${metadata.ownerId}> (\`${metadata.ownerId}\`)` : 'Unknown',
+              inline: true
+            },
+            {
+              name: '👑 Staff Claimed',
+              value: metadata?.claimedBy && metadata.claimedBy !== 'None'
+                ? `<@${metadata.claimedBy}> (\`${metadata.claimedBy}\`)`
+                : '🔓 *Unclaimed*',
+              inline: true
+            },
+            {
+              name: '🔒 Closed By',
+              value: `<@${interaction.user.id}> (${interaction.user.tag})`,
+              inline: true
+            },
+            {
+              name: '💬 Messages Sent by Each Member',
+              value: messageBreakdown.length > 1024 ? messageBreakdown.slice(0, 1020) + '...' : messageBreakdown,
+              inline: false
+            }
+          )
+          .setThumbnail(interaction.guild.iconURL({ dynamic: true }))
+          .setFooter({ text: `Ticket ID: ${channel.id} • Closed at` })
           .setTimestamp();
 
-        await logChannel.send({ embeds: [logEmbed], files: [attachment] }).catch(console.error);
+        await logChannel.send({ embeds: [logEmbed], files: [attachment] }).catch(err => {
+          console.error('Failed to send transcript to log channel:', err);
+        });
       }
     }
 
@@ -457,7 +535,13 @@ async function handleTicketConfirmClose(interaction) {
         if (owner) {
           const dmEmbed = new EmbedBuilder()
             .setTitle('📄 Ticket Transcript')
-            .setDescription(`Your ticket **${channel.name}** in **${interaction.guild.name}** has been closed.\nAttached is your full conversation transcript.`)
+            .setDescription(
+              `Your ticket **#${channel.name}** in **${interaction.guild.name}** has been closed.\n\n` +
+              `• **Ticket ID:** \`${channel.id}\`\n` +
+              `• **Closed By:** <@${interaction.user.id}>\n` +
+              `• **Claimed By:** ${metadata.claimedBy && metadata.claimedBy !== 'None' ? `<@${metadata.claimedBy}>` : '*Unclaimed*'}\n\n` +
+              `Attached is your full conversation transcript file.`
+            )
             .setColor(0x5865F2)
             .setTimestamp();
 
