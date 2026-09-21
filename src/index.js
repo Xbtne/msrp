@@ -10,6 +10,7 @@ const {
 } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
+const http = require('http');
 
 const token = process.env.DISCORD_TOKEN;
 
@@ -17,6 +18,15 @@ if (!token) {
   console.error('❌ Error: DISCORD_TOKEN is not defined in .env file!');
   process.exit(1);
 }
+
+// Lightweight HTTP server for Render / Web Service health checks
+const port = process.env.PORT || 3000;
+http.createServer((req, res) => {
+  res.writeHead(200, { 'Content-Type': 'text/plain' });
+  res.end('Monroe County Ticket Bot is Running Online!');
+}).listen(port, () => {
+  console.log(`🌐 HTTP health check server listening on port ${port}`);
+});
 
 const client = new Client({
   intents: [
