@@ -12,13 +12,23 @@ const fs = require('fs');
 const path = require('path');
 
 function getConfig() {
+  let config = { staffRoleIds: [], ticketTypes: [] };
   try {
     const raw = fs.readFileSync(path.join(__dirname, '../../config.json'), 'utf8');
-    return JSON.parse(raw);
+    config = JSON.parse(raw);
   } catch (err) {
     console.error('Error reading config.json:', err);
-    return { staffRoleIds: [], ticketTypes: [] };
   }
+
+  // Allow Railway environment variables to override if present
+  if (process.env.LOG_CHANNEL_ID) config.logChannelId = process.env.LOG_CHANNEL_ID;
+  if (process.env.CATEGORY_ID) config.defaultCategoryId = process.env.CATEGORY_ID;
+  if (process.env.PING_ROLE_ID) config.pingRoleId = process.env.PING_ROLE_ID;
+  if (process.env.STAFF_ROLE_IDS) {
+    config.staffRoleIds = process.env.STAFF_ROLE_IDS.split(',').map(id => id.trim());
+  }
+
+  return config;
 }
 
 /**
