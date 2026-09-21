@@ -231,8 +231,10 @@ async function handleTicketCreate(interaction, typeId) {
     const embed = createTicketEmbed(typeConfig, user, null);
     const row = createTicketControlRow(false, null);
 
+    const pingRoleStr = config.pingRoleId ? `<@&${config.pingRoleId}>` : 'Our staff team';
+
     const ticketMsg = await channel.send({
-      content: `👋 Hello <@${user.id}>, welcome to your **${typeConfig.label}** ticket! Our staff team has been notified.`,
+      content: `👋 Hello <@${user.id}>, welcome to your **${typeConfig.label}** ticket! ${pingRoleStr} will assist you shortly.`,
       embeds: [embed],
       components: [row]
     });

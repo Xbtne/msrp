@@ -1,5 +1,6 @@
 {
-  "staffRoleIds": [],
+  "staffRoleIds": ["1544965232625983488"],
+  "pingRoleId": "1544965232625983488",
   "logChannelId": "1544973597758455808",
   "panel": {
     "title": "📬 Monroe County Ticket System",
