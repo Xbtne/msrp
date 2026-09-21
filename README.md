@@ -48,6 +48,7 @@ The bot now includes a full suite of moderation commands:
 | `/lock channel [reason]` | Lock the current channel for @everyone | Manage Channels |
 | `/lock unlock` | Unlock the current channel | Manage Channels |
 | `/slowmode <seconds>` | Set channel slowmode rate limit (0 to disable) | Manage Channels |
+| `/setupcomp [action] [channel_name]` | Deploy Honeypot channel to catch & auto-quarantine compromised accounts | Administrator |
 
 
 ---
