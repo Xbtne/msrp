@@ -2,6 +2,7 @@
   "staffRoleIds": ["1544965232625983488"],
   "pingRoleId": "1544965232625983488",
   "logChannelId": "1544973597758455808",
+  "defaultCategoryId": "1538405571001065503",
   "panel": {
     "title": "📬 Monroe County Ticket System",
     "description": "Need assistance or looking to partner? Click one of the buttons below to open a private ticket.\n\n🎮 **Game Report** — In-game bugs, glitches & server issues\n🎫 **Support Ticket** — General questions & server support\n🚨 **Player Report** — Player violations & rule breaches\n🤝 **Partnership** — Server partnerships & collaborations\n\n*Our staff team will assist you as soon as possible.*",
@@ -15,7 +16,7 @@
       "emoji": "🎮",
       "style": "Primary",
       "channelPrefix": "game",
-      "categoryId": "",
+      "categoryId": "1538405571001065503",
       "welcomeTitle": "🎮 Game Report Ticket",
       "welcomeDescription": "Thank you for reaching out! Please describe the game issue, bug, or glitch you encountered in detail.\nProvide screenshots or video evidence if available.\n\nA staff member will claim and assist you shortly."
     },
@@ -25,7 +26,7 @@
       "emoji": "🎫",
       "style": "Success",
       "channelPrefix": "support",
-      "categoryId": "",
+      "categoryId": "1538405571001065503",
       "welcomeTitle": "🎫 General Support Ticket",
       "welcomeDescription": "Welcome to your support ticket! Please explain what you need assistance with.\n\nA staff member will claim and assist you shortly."
     },
@@ -35,7 +36,7 @@
       "emoji": "🚨",
       "style": "Danger",
       "channelPrefix": "player",
-      "categoryId": "",
+      "categoryId": "1538405571001065503",
       "welcomeTitle": "🚨 Player Report Ticket",
       "welcomeDescription": "Thank you for submitting a report. Please provide:\n• Offending Player's Name / ID\n• Description of rule broken\n• Time / Date of incident\n• Proof / Evidence (Screenshots/Clips)\n\nA staff member will claim and review this report shortly."
     },
@@ -45,7 +46,7 @@
       "emoji": "🤝",
       "style": "Primary",
       "channelPrefix": "partner",
-      "categoryId": "",
+      "categoryId": "1538405571001065503",
       "welcomeTitle": "🤝 Partnership Ticket",
       "welcomeDescription": "Welcome to Monroe County Partnerships! Please provide:\n• Your Server / Community Name\n• Member Count\n• Permanent Discord Invite Link\n• Server Representative / Contact\n\nOur Public Relations / Management team will review your partnership request shortly."
     }

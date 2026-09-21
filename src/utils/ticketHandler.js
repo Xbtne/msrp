@@ -222,8 +222,14 @@ async function handleTicketCreate(interaction, typeId) {
       permissionOverwrites: permissionOverwrites
     };
 
-    if (typeConfig.categoryId && guild.channels.cache.has(typeConfig.categoryId)) {
-      channelOptions.parent = typeConfig.categoryId;
+    const targetCategoryId = typeConfig.categoryId || config.defaultCategoryId;
+    if (targetCategoryId) {
+      const categoryExists =
+        guild.channels.cache.get(targetCategoryId) ||
+        (await guild.channels.fetch(targetCategoryId).catch(() => null));
+      if (categoryExists) {
+        channelOptions.parent = targetCategoryId;
+      }
     }
 
     const channel = await guild.channels.create(channelOptions);
