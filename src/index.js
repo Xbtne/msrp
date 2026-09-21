@@ -19,13 +19,15 @@ if (!token) {
   process.exit(1);
 }
 
-// Lightweight HTTP server for Render / Web Service health checks
+const { renderDashboard } = require('./utils/dashboard');
+
+// Web Dashboard & HTTP health check server for Render
 const port = process.env.PORT || 3000;
 http.createServer((req, res) => {
-  res.writeHead(200, { 'Content-Type': 'text/plain' });
-  res.end('Monroe County Ticket Bot is Running Online!');
+  res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+  res.end(renderDashboard(client));
 }).listen(port, () => {
-  console.log(`🌐 HTTP health check server listening on port ${port}`);
+  console.log(`🌐 Web Dashboard listening on port ${port}`);
 });
 
 // Auto keep-alive ping to prevent Render free tier from sleeping
