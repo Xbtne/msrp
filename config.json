@@ -3,7 +3,7 @@
   "logChannelId": "",
   "panel": {
     "title": "📬 Monroe County Ticket System",
-    "description": "Need assistance from our team? Click one of the buttons below to open a private ticket.\n\n🎮 **Game Report** — In-game bugs, glitches & server issues\n🎫 **Support Ticket** — General questions & server support\n🚨 **Player Report** — Player violations & rule breaches\n\n*Our staff team will assist you as soon as possible.*",
+    "description": "Need assistance or looking to partner? Click one of the buttons below to open a private ticket.\n\n🎮 **Game Report** — In-game bugs, glitches & server issues\n🎫 **Support Ticket** — General questions & server support\n🚨 **Player Report** — Player violations & rule breaches\n🤝 **Partnership** — Server partnerships & collaborations\n\n*Our staff team will assist you as soon as possible.*",
     "color": "#5865F2",
     "footer": "Monroe County Support • Click a button below to open a ticket"
   },
@@ -37,6 +37,16 @@
       "categoryId": "",
       "welcomeTitle": "🚨 Player Report Ticket",
       "welcomeDescription": "Thank you for submitting a report. Please provide:\n• Offending Player's Name / ID\n• Description of rule broken\n• Time / Date of incident\n• Proof / Evidence (Screenshots/Clips)\n\nA staff member will claim and review this report shortly."
+    },
+    {
+      "id": "partnership",
+      "label": "Partnership",
+      "emoji": "🤝",
+      "style": "Primary",
+      "channelPrefix": "partner",
+      "categoryId": "",
+      "welcomeTitle": "🤝 Partnership Ticket",
+      "welcomeDescription": "Welcome to Monroe County Partnerships! Please provide:\n• Your Server / Community Name\n• Member Count\n• Permanent Discord Invite Link\n• Server Representative / Contact\n\nOur Public Relations / Management team will review your partnership request shortly."
     }
   ]
 }

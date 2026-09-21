@@ -12,7 +12,7 @@ const { getConfig, isStaff } = require('../utils/ticketHandler');
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('setup-panel')
-    .setDescription('Deploy the 3-button ticket panel in a channel')
+    .setDescription('Deploy the interactive ticket panel in a channel')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .addChannelOption(option =>
       option
@@ -34,14 +34,14 @@ module.exports = {
     const config = getConfig();
 
     const embed = new EmbedBuilder()
-      .setTitle(config.panel?.title || '📬 Support & Assistance Desk')
+      .setTitle(config.panel?.title || '📬 Monroe County Ticket System')
       .setDescription(
         config.panel?.description ||
         'Need assistance? Click one of the buttons below to open a ticket with our team!'
       )
       .setColor(config.panel?.color || '#5865F2')
       .setFooter({
-        text: config.panel?.footer || 'Support System • Click a button below',
+        text: config.panel?.footer || 'Monroe County Support • Click a button below',
         iconURL: interaction.guild.iconURL({ dynamic: true })
       })
       .setTimestamp();
@@ -50,9 +50,6 @@ module.exports = {
       embed.setThumbnail(interaction.guild.iconURL({ dynamic: true }));
     }
 
-    const row = new ActionRowBuilder();
-
-    // Map style string to ButtonStyle enum
     const styleMap = {
       Primary: ButtonStyle.Primary,
       Secondary: ButtonStyle.Secondary,
@@ -60,7 +57,15 @@ module.exports = {
       Danger: ButtonStyle.Danger
     };
 
+    const rows = [];
+    let currentRow = new ActionRowBuilder();
+
     for (const ticketType of config.ticketTypes) {
+      if (currentRow.components.length >= 5) {
+        rows.push(currentRow);
+        currentRow = new ActionRowBuilder();
+      }
+
       const button = new ButtonBuilder()
         .setCustomId(`create_ticket_${ticketType.id}`)
         .setLabel(ticketType.label)
@@ -70,11 +75,15 @@ module.exports = {
         button.setEmoji(ticketType.emoji);
       }
 
-      row.addComponents(button);
+      currentRow.addComponents(button);
+    }
+
+    if (currentRow.components.length > 0) {
+      rows.push(currentRow);
     }
 
     try {
-      await targetChannel.send({ embeds: [embed], components: [row] });
+      await targetChannel.send({ embeds: [embed], components: rows });
       return interaction.reply({
         content: `✅ Successfully sent the ticket panel to ${targetChannel}!`,
         ephemeral: true
