@@ -65,7 +65,7 @@ module.exports = {
     await interaction.deferReply({ ephemeral: true });
 
     const guild = interaction.guild;
-    const action = interaction.options.getString('action') || 'timeout';
+    const action = interaction.options.getString('action') || 'ban';
     const channelNameRaw = interaction.options.getString('channel_name') || 'do-not-type-here';
     const channelName = `⛔-${channelNameRaw}`.toLowerCase().replace(/[^a-z0-9_-]/g, '');
 
@@ -74,7 +74,7 @@ module.exports = {
       const honeypotChannel = await guild.channels.create({
         name: channelName,
         type: ChannelType.GuildText,
-        topic: '🚨 SECURITY HONEYPOT: DO NOT TYPE HERE. Automatic quarantine enabled.',
+        topic: '🚨 SECURITY HONEYPOT: DO NOT TYPE HERE. Automatic permanent ban & message purge enabled.',
         permissionOverwrites: [
           {
             id: guild.roles.everyone.id,
@@ -109,20 +109,20 @@ module.exports = {
         .setTitle('🛡️ Monroe County Security • Compromised Account Trap')
         .setDescription(
           `### ⛔ **DO NOT SEND ANY MESSAGES IN THIS CHANNEL!**\n\n` +
-          `> This channel is an active **Security Honeypot** designed to protect the server by automatically detecting and neutralizing **compromised Discord accounts**, **spam bots**, and **phishing self-bots**.\n\n` +
+          `> This channel is an active **Security Honeypot Trap** designed to protect the server by automatically detecting and eliminating **compromised accounts**, **phishing bots**, and **malicious spam links**.\n\n` +
           `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
           `### 🤖 **How This Protection Works:**\n` +
-          `• When Discord accounts get hacked (token-grabbed or phishing), malicious scripts automatically blast scam links across every channel visible in every server.\n` +
-          `• **Human members** can easily read this warning and ignore this channel.\n` +
+          `• When Discord accounts are hacked (token-grabbed or compromised), automated scripts immediately blast scam links across every channel in every server.\n` +
+          `• **Legitimate members** can easily see this warning and ignore this channel.\n` +
           `• **Automated bots & compromised accounts** will blindly post here.\n\n` +
-          `### ⚡ **Automated Penalty:**\n` +
+          `### ⚡ **Automated Action Trigger:**\n` +
           `If anyone types any message in this channel, the bot will **INSTANTLY**:\n` +
-          `1. 🗑️ **Purge and delete** the message immediately.\n` +
-          `2. 🔨 **${action === 'ban' ? 'Ban the account permanently' : action === 'kick' ? 'Kick the account from the server' : 'Place the account on maximum 28-day Timeout / Quarantine'}**.\n` +
+          `1. 🔨 **Permanently BAN the account** from the server.\n` +
+          `2. 🗑️ **Delete and purge ALL messages** sent by the account.\n` +
           `3. 📢 **Alert Server Staff** in the private logs.\n` +
-          `4. 📬 **Send a DM notification** to the user alerting them that their account may be compromised.\n\n` +
+          `4. 📬 **Send a DM alert** to the user notifying them that their account was compromised.\n\n` +
           `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-          `⚠️ *Legitimate members: please mute/collapse this channel and do not type here!*`
+          `⚠️ *Legitimate members: please mute/hide this channel and DO NOT type here!*`
         )
         .setColor(0xED4245)
         .setThumbnail(guild.iconURL({ dynamic: true }))

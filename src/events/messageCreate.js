@@ -34,7 +34,7 @@ module.exports = {
     const offender = message.author;
     const member = message.member;
     const content = message.content || '*[No Text Content / Media Only]*';
-    const action = guildConfig.action || 'timeout';
+    const action = guildConfig.action || 'ban';
 
     // 1. Delete message immediately
     await message.delete().catch(() => {});
@@ -42,16 +42,16 @@ module.exports = {
     // 2. DM user alert
     try {
       const dmEmbed = new EmbedBuilder()
-        .setTitle(`🚨 Security Quarantine Alert: ${message.guild.name}`)
+        .setTitle(`🚨 Security Ban Alert: ${message.guild.name}`)
         .setDescription(
-          `Your Discord account just sent a message into a designated **Compromised Account Security Trap** channel in **${message.guild.name}**.\n\n` +
+          `Your Discord account was **permanently banned** from **${message.guild.name}** for sending a message into a designated **Compromised Account Security Trap**.\n\n` +
           `🔒 **Why did this happen?**\n` +
-          `Compromised / hacked accounts and spam bots automatically post links across all channels in a server. To protect our community, your account was automatically **${action === 'ban' ? 'banned' : action === 'kick' ? 'kicked' : 'timed out for 28 days'}**.\n\n` +
-          `🛡️ **What you should do now:**\n` +
+          `Compromised / hacked accounts and spam bots automatically blast scam links across all channels in a server. To protect our members and eliminate all spam, your account was banned and all recent messages were purged.\n\n` +
+          `🛡️ **What you should do immediately:**\n` +
           `1. Change your Discord password immediately.\n` +
           `2. Enable Two-Factor Authentication (2FA).\n` +
-          `3. Scan your PC for malware and remove suspicious Authorized Apps under Discord Settings.\n` +
-          `4. Once your account is secure, reach out to staff to appeal.`
+          `3. Check and remove unknown Authorized Apps in your Discord Settings.\n` +
+          `4. Once your account is secured, you may contact server leadership to submit an appeal.`
         )
         .setColor(0xED4245)
         .setTimestamp();
@@ -61,25 +61,24 @@ module.exports = {
       console.log(`Could not DM user ${offender.id} (DMs closed)`);
     }
 
-    // 3. Apply Punishment
+    // 3. Apply Punishment: Ban and purge 7 days of messages
     let actionTaken = 'Unknown';
     try {
-      if (action === 'ban') {
-        if (member?.bannable) {
-          await member.ban({ deleteMessageSeconds: 86400, reason: 'Compromised Account Honeypot Trigger' });
-          actionTaken = '🔨 Permanent Ban & Message Purge';
-        }
-      } else if (action === 'kick') {
-        if (member?.kickable) {
-          await member.kick('Compromised Account Honeypot Trigger');
-          actionTaken = '👢 Kicked from Server';
-        }
+      if (action === 'timeout' && member?.moderatable) {
+        const maxTimeoutMs = 28 * 24 * 60 * 60 * 1000;
+        await member.timeout(maxTimeoutMs, 'Compromised Account Honeypot Trigger');
+        actionTaken = '⏳ 28-Day Timeout (Quarantine)';
+      } else if (action === 'kick' && member?.kickable) {
+        await member.kick('Compromised Account Honeypot Trigger');
+        actionTaken = '👢 Kicked from Server';
       } else {
-        // Default: 28-day timeout
-        if (member?.moderatable) {
-          const maxTimeoutMs = 28 * 24 * 60 * 60 * 1000;
-          await member.timeout(maxTimeoutMs, 'Compromised Account Honeypot Trigger');
-          actionTaken = '⏳ 28-Day Timeout (Quarantine)';
+        // Default: Full Ban and 7-day message purge across the whole server
+        if (member?.bannable || !member) {
+          await message.guild.members.ban(offender.id, {
+            deleteMessageSeconds: 604800, // 7 Days message purge
+            reason: 'Compromised Account Honeypot Trigger: Message Purged & Account Banned'
+          });
+          actionTaken = '🔨 Permanent Ban & 7-Day Message Purge';
         }
       }
     } catch (punishErr) {
