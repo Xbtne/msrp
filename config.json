@@ -18,7 +18,7 @@
       "channelPrefix": "game",
       "categoryId": "1538405571001065503",
       "welcomeTitle": "🎮 Game Report Ticket",
-      "welcomeDescription": "Thank you for reaching out! Please describe the game issue, bug, or glitch you encountered in detail.\nProvide screenshots or video evidence if available.\n\nA staff member will claim and assist you shortly."
+      "welcomeDescription": "Thank you for reaching out! Please describe the game issue, bug, or glitch you encountered in detail.\n\n📸 **Proof / Screenshots:** Please upload any screenshots, photos, or video clips directly in this channel below.\n\nA staff member will claim and assist you shortly."
     },
     {
       "id": "support_ticket",
@@ -28,7 +28,7 @@
       "channelPrefix": "support",
       "categoryId": "1538405571001065503",
       "welcomeTitle": "🎫 General Support Ticket",
-      "welcomeDescription": "Welcome to your support ticket! Please explain what you need assistance with.\n\nA staff member will claim and assist you shortly."
+      "welcomeDescription": "Welcome to your support ticket! Please explain what you need assistance with.\n\n📸 **Proof / Screenshots:** Feel free to attach any screenshots or images directly in this channel below.\n\nA staff member will claim and assist you shortly."
     },
     {
       "id": "player_report",
@@ -38,7 +38,7 @@
       "channelPrefix": "player",
       "categoryId": "1538405571001065503",
       "welcomeTitle": "🚨 Player Report Ticket",
-      "welcomeDescription": "Thank you for submitting a report. Please provide:\n• Offending Player's Name / ID\n• Description of rule broken\n• Time / Date of incident\n• Proof / Evidence (Screenshots/Clips)\n\nA staff member will claim and review this report shortly."
+      "welcomeDescription": "Thank you for submitting a report. Please provide:\n• **Offending Player's Name / ID**\n• **Rule Broken & Details**\n• **Time / Date of Incident**\n• 📸 **Proof & Evidence:** Please upload your screenshots, clips, or image attachments directly in this channel below.\n\nA staff member will claim and review this report shortly."
     },
     {
       "id": "partnership",
@@ -48,7 +48,7 @@
       "channelPrefix": "partner",
       "categoryId": "1538405571001065503",
       "welcomeTitle": "🤝 Partnership Ticket",
-      "welcomeDescription": "Welcome to Monroe County Partnerships! Please provide:\n• Your Server / Community Name\n• Member Count\n• Permanent Discord Invite Link\n• Server Representative / Contact\n\nOur Public Relations / Management team will review your partnership request shortly."
+      "welcomeDescription": "Welcome to Monroe County Partnerships! Please provide:\n• **Server / Community Name & Member Count**\n• **Permanent Invite Link**\n• 📸 **Ad Banner / Screenshot:** Attach your server banner or proof directly in this channel below.\n\nOur Public Relations / Management team will review your partnership request shortly."
     }
   ]
 }

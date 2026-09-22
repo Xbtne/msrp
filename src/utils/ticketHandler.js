@@ -125,6 +125,12 @@ function createTicketEmbed(typeConfig, user, claimedMember = null) {
     })
     .setTimestamp();
 
+  embed.addFields({
+    name: '📸 Screenshots & Proof',
+    value: 'You can upload or paste your screenshots, image files, or video clips directly into this channel below.',
+    inline: false
+  });
+
   if (claimedMember) {
     embed.addFields({
       name: '👑 Claimed By Staff Member',
