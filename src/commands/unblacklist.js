@@ -8,10 +8,7 @@ module.exports = {
     .setDescription('Shortcut to unblacklist a user from creating tickets')
     .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers)
     .addUserOption(opt =>
-      opt.setName('user').setDescription('The user to unblacklist').setRequired(false)
-    )
-    .addStringOption(opt =>
-      opt.setName('user_id').setDescription('Discord User ID (if user not in server)').setRequired(false)
+      opt.setName('user').setDescription('The user to unblacklist').setRequired(true)
     ),
 
   async execute(interaction) {

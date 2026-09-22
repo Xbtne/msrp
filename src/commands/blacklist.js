@@ -41,10 +41,7 @@ module.exports = {
         .setName('add')
         .setDescription('Blacklist a user from creating tickets')
         .addUserOption(opt =>
-          opt.setName('user').setDescription('The user to blacklist').setRequired(false)
-        )
-        .addStringOption(opt =>
-          opt.setName('user_id').setDescription('Discord User ID (if user not in server)').setRequired(false)
+          opt.setName('user').setDescription('The user to blacklist').setRequired(true)
         )
         .addStringOption(opt =>
           opt.setName('reason').setDescription('Reason for the blacklist').setRequired(true)
@@ -61,10 +58,7 @@ module.exports = {
         .setName('remove')
         .setDescription('Remove a user from the ticket blacklist')
         .addUserOption(opt =>
-          opt.setName('user').setDescription('The user to unblacklist').setRequired(false)
-        )
-        .addStringOption(opt =>
-          opt.setName('user_id').setDescription('Discord User ID').setRequired(false)
+          opt.setName('user').setDescription('The user to unblacklist').setRequired(true)
         )
         .addStringOption(opt =>
           opt.setName('reason').setDescription('Reason for removal').setRequired(false)
