@@ -49,6 +49,12 @@ module.exports = {
         .addStringOption(opt =>
           opt.setName('reason').setDescription('Reason for the blacklist').setRequired(true)
         )
+        .addAttachmentOption(opt =>
+          opt.setName('proof').setDescription('Attach screenshot / image proof').setRequired(false)
+        )
+        .addStringOption(opt =>
+          opt.setName('proof_url').setDescription('Link to screenshot / image proof').setRequired(false)
+        )
     )
     .addSubcommand(sub =>
       sub
@@ -113,6 +119,9 @@ module.exports = {
       }
 
       const reason = interaction.options.getString('reason');
+      const proofAttachment = interaction.options.getAttachment('proof');
+      const proofUrlInput = interaction.options.getString('proof_url');
+      const proofUrl = proofAttachment?.url || proofUrlInput || null;
 
       if (blacklist[guildId][targetUser.id]) {
         return interaction.reply({
@@ -125,6 +134,7 @@ module.exports = {
         userId: targetUser.id,
         tag: targetUser.tag,
         reason: reason,
+        proof: proofUrl,
         moderator: interaction.user.tag,
         moderatorId: interaction.user.id,
         timestamp: new Date().toISOString()
@@ -143,6 +153,7 @@ module.exports = {
           )
           .setColor(0xED4245)
           .setTimestamp();
+        if (proofUrl) dmEmbed.setImage(proofUrl);
         await targetUser.send({ embeds: [dmEmbed] });
       } catch (dmErr) {}
 
@@ -164,6 +175,12 @@ module.exports = {
             )
             .setThumbnail(targetUser.displayAvatarURL({ dynamic: true }))
             .setTimestamp();
+
+          if (proofUrl) {
+            logEmbed.setImage(proofUrl);
+            logEmbed.addFields({ name: '📸 Screenshot Proof', value: `[Click to View Proof](${proofUrl})`, inline: false });
+          }
+
           await logChannel.send({ embeds: [logEmbed] }).catch(() => {});
         }
       }
@@ -179,6 +196,11 @@ module.exports = {
         .setColor(0xED4245)
         .setThumbnail(targetUser.displayAvatarURL({ dynamic: true }))
         .setTimestamp();
+
+      if (proofUrl) {
+        embed.setImage(proofUrl);
+        embed.addFields({ name: '📸 Screenshot Proof', value: `[Click to View Attached Screenshot](${proofUrl})`, inline: false });
+      }
 
       return interaction.reply({ embeds: [embed] });
     } else if (subcommand === 'remove') {
@@ -246,6 +268,7 @@ module.exports = {
               (entry, idx) =>
                 `**${idx + 1}.** <@${entry.userId}> (\`${entry.userId}\`)\n` +
                 `• **Reason:** ${entry.reason}\n` +
+                (entry.proof ? `• **Proof:** [View Screenshot Proof](${entry.proof})\n` : '') +
                 `• **By:** <@${entry.moderatorId}> • <t:${Math.floor(new Date(entry.timestamp).getTime() / 1000)}:R>`
             )
             .join('\n\n')
