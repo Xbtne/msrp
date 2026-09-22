@@ -48,6 +48,10 @@ The bot now includes a full suite of moderation commands:
 | `/lock channel [reason]` | Lock the current channel for @everyone | Manage Channels |
 | `/lock unlock` | Unlock the current channel | Manage Channels |
 | `/slowmode <seconds>` | Set channel slowmode rate limit (0 to disable) | Manage Channels |
+| `/blacklist add <user> <reason>` | Blacklist a user from opening tickets | Moderate Members / Staff |
+| `/blacklist remove <user>` | Remove a user from the ticket blacklist | Moderate Members / Staff |
+| `/blacklist list` | View all blacklisted users in the server | Moderate Members / Staff |
+| `/unblacklist <user>` | Shortcut to remove a user from the blacklist | Moderate Members / Staff |
 | `/setupcomp [action] [channel_name]` | Deploy Honeypot channel to catch & auto-quarantine compromised accounts | Administrator |
 
 
