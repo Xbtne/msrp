@@ -99,30 +99,10 @@ module.exports = {
         });
       }
 
-      if (targetUser.id === interaction.guild.ownerId) {
-        return interaction.reply({ content: '❌ You cannot blacklist the server owner.', ephemeral: true });
-      }
-
-      if (targetUser.id === interaction.user.id) {
-        return interaction.reply({ content: '❌ You cannot blacklist yourself.', ephemeral: true });
-      }
-
-      const targetMember = await interaction.guild.members.fetch(targetUser.id).catch(() => null);
-      if (targetMember && isStaff(targetMember)) {
-        return interaction.reply({ content: '❌ You cannot blacklist a staff member.', ephemeral: true });
-      }
-
       const reason = interaction.options.getString('reason');
       const proofAttachment = interaction.options.getAttachment('proof');
       const proofUrlInput = interaction.options.getString('proof_url');
       const proofUrl = proofAttachment?.url || proofUrlInput || null;
-
-      if (blacklist[guildId][targetUser.id]) {
-        return interaction.reply({
-          content: `⚠️ <@${targetUser.id}> is already blacklisted from tickets.\n**Reason:** ${blacklist[guildId][targetUser.id].reason}`,
-          ephemeral: true
-        });
-      }
 
       blacklist[guildId][targetUser.id] = {
         userId: targetUser.id,
@@ -139,9 +119,9 @@ module.exports = {
       // DM the user
       try {
         const dmEmbed = new EmbedBuilder()
-          .setTitle(`🚫 Ticket Blacklist Notice: ${interaction.guild.name}`)
+          .setTitle(`🚫 Blacklist Record Logged: ${interaction.guild.name}`)
           .setDescription(
-            `You have been **blacklisted from creating tickets** in **${interaction.guild.name}**.\n\n` +
+            `A **blacklist record** has been submitted for your profile in **${interaction.guild.name}**.\n\n` +
             `• **Reason:** ${reason}\n` +
             `• **Moderator:** ${interaction.user.tag}`
           )
@@ -160,7 +140,7 @@ module.exports = {
 
         if (logChannel) {
           const logEmbed = new EmbedBuilder()
-            .setTitle('🚫 User Blacklisted from Tickets')
+            .setTitle('🚫 Blacklist Entry Submitted')
             .setColor(0xED4245)
             .addFields(
               { name: 'Target User', value: `<@${targetUser.id}> (\`${targetUser.id}\`)`, inline: true },
@@ -180,10 +160,10 @@ module.exports = {
       }
 
       const embed = new EmbedBuilder()
-        .setTitle('🚫 User Blacklisted from Tickets')
-        .setDescription(`**<@${targetUser.id}>** has been blacklisted from opening support tickets.`)
+        .setTitle('🚫 Blacklist Record Submitted')
+        .setDescription(`Blacklist record for **<@${targetUser.id}>** has been submitted and logged.`)
         .addFields(
-          { name: 'User', value: `${targetUser.tag} (\`${targetUser.id}\`)`, inline: true },
+          { name: 'Target User', value: `${targetUser.tag} (\`${targetUser.id}\`)`, inline: true },
           { name: 'Moderator', value: `<@${interaction.user.id}>`, inline: true },
           { name: 'Reason', value: reason, inline: false }
         )

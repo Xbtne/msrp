@@ -158,21 +158,6 @@ async function handleTicketCreate(interaction, typeId) {
     });
   }
 
-  // Check if user is blacklisted from creating tickets
-  const blacklistPath = path.join(__dirname, '../../data/blacklist.json');
-  try {
-    if (fs.existsSync(blacklistPath)) {
-      const blacklist = JSON.parse(fs.readFileSync(blacklistPath, 'utf8'));
-      const userBlacklist = blacklist[guild.id]?.[user.id];
-      if (userBlacklist) {
-        return interaction.reply({
-          content: `🚫 **You are blacklisted from opening support tickets.**\n• **Reason:** ${userBlacklist.reason}\n• *Please contact server staff if you believe this is a mistake.*`,
-          ephemeral: true
-        });
-      }
-    }
-  } catch (blErr) {}
-
   // Check if user already has an open ticket of this type or in general
   const existingChannel = guild.channels.cache.find(c => {
     if (c.type !== ChannelType.GuildText) return false;
