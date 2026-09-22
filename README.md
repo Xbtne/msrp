@@ -52,6 +52,7 @@ The bot now includes a full suite of moderation commands:
 | `/blacklist remove <user>` | Remove a user from the ticket blacklist | Moderate Members / Staff |
 | `/blacklist list` | View all blacklisted users in the server | Moderate Members / Staff |
 | `/unblacklist <user>` | Shortcut to remove a user from the blacklist | Moderate Members / Staff |
+| `/staffreview <staff> <rating> <review> [anonymous]` | Submit a star review & feedback for a staff member | @everyone |
 | `/setupcomp [action] [channel_name]` | Deploy Honeypot channel to catch & auto-quarantine compromised accounts | Administrator |
 
 

@@ -20,10 +20,11 @@ function getConfig() {
     console.error('Error reading config.json:', err);
   }
 
-  // Allow Railway environment variables to override if present
+  // Allow Railway / Render environment variables to override if present
   if (process.env.LOG_CHANNEL_ID) config.logChannelId = process.env.LOG_CHANNEL_ID;
   if (process.env.CATEGORY_ID) config.defaultCategoryId = process.env.CATEGORY_ID;
   if (process.env.PING_ROLE_ID) config.pingRoleId = process.env.PING_ROLE_ID;
+  if (process.env.REVIEWS_CHANNEL_ID) config.reviewsChannelId = process.env.REVIEWS_CHANNEL_ID;
   if (process.env.STAFF_ROLE_IDS) {
     config.staffRoleIds = process.env.STAFF_ROLE_IDS.split(',').map(id => id.trim());
   }
