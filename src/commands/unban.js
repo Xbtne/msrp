@@ -13,13 +13,19 @@ module.exports = {
     ),
 
   async execute(interaction) {
+    try {
+      if (!interaction.deferred && !interaction.replied) {
+        await interaction.deferReply({ ephemeral: false });
+      }
+    } catch (e) {}
+
     const userId = interaction.options.getString('user_id');
     const reason = interaction.options.getString('reason') || 'No reason provided';
 
     try {
       const ban = await interaction.guild.bans.fetch(userId).catch(() => null);
       if (!ban) {
-        return interaction.reply({ content: '❌ That user is not banned in this server.', ephemeral: true });
+        return interaction.editReply({ content: '❌ That user is not banned in this server.' });
       }
 
       await interaction.guild.bans.remove(userId, `${reason} | Unbanned by ${interaction.user.tag}`);
@@ -28,16 +34,16 @@ module.exports = {
         .setTitle('🔓 User Unbanned')
         .setColor(0x57F287)
         .addFields(
-          { name: 'User', value: `<@${userId}> (${ban.user.tag})`, inline: true },
+          { name: 'User', value: `<@${userId}> (${ban.user?.tag || userId})`, inline: true },
           { name: 'Moderator', value: `<@${interaction.user.id}>`, inline: true },
           { name: 'Reason', value: reason, inline: false }
         )
         .setTimestamp();
 
-      return interaction.reply({ embeds: [unbanEmbed] });
+      return interaction.editReply({ embeds: [unbanEmbed] });
     } catch (err) {
       console.error('Unban error:', err);
-      return interaction.reply({ content: `❌ Failed to unban user: ${err.message}`, ephemeral: true });
+      return interaction.editReply({ content: `❌ Failed to unban user: ${err.message}` });
     }
   }
 };

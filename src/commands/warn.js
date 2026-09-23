@@ -51,6 +51,12 @@ module.exports = {
     ),
 
   async execute(interaction) {
+    try {
+      if (!interaction.deferred && !interaction.replied) {
+        await interaction.deferReply({ ephemeral: false });
+      }
+    } catch (e) {}
+
     const subcommand = interaction.options.getSubcommand();
     const targetUser = interaction.options.getUser('target');
     const guildId = interaction.guild.id;
@@ -94,14 +100,13 @@ module.exports = {
         .setThumbnail(targetUser.displayAvatarURL({ dynamic: true }))
         .setTimestamp();
 
-      return interaction.reply({ embeds: [warnEmbed] });
+      return interaction.editReply({ embeds: [warnEmbed] });
     } else if (subcommand === 'list') {
       const userWarns = warnings[guildId][targetUser.id];
 
       if (!userWarns || userWarns.length === 0) {
-        return interaction.reply({
-          content: `✅ <@${targetUser.id}> has no warnings in this server.`,
-          ephemeral: true
+        return interaction.editReply({
+          content: `✅ <@${targetUser.id}> has no warnings in this server.`
         });
       }
 
@@ -121,15 +126,14 @@ module.exports = {
         .setThumbnail(targetUser.displayAvatarURL({ dynamic: true }))
         .setFooter({ text: `Total Warnings: ${userWarns.length}` });
 
-      return interaction.reply({ embeds: [listEmbed] });
+      return interaction.editReply({ embeds: [listEmbed] });
     } else if (subcommand === 'clear') {
       const count = warnings[guildId][targetUser.id].length;
       warnings[guildId][targetUser.id] = [];
       saveWarnings(warnings);
 
-      return interaction.reply({
-        content: `✅ Cleared **${count}** warning(s) for <@${targetUser.id}>.`,
-        ephemeral: false
+      return interaction.editReply({
+        content: `✅ Cleared **${count}** warning(s) for <@${targetUser.id}>.`
       });
     }
   }

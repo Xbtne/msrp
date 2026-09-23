@@ -20,20 +20,24 @@ module.exports = {
     ),
 
   async execute(interaction) {
+    try {
+      if (!interaction.deferred && !interaction.replied) {
+        await interaction.deferReply({ ephemeral: false });
+      }
+    } catch (e) {}
+
     const channel = interaction.channel;
     const metadata = parseTicketTopic(channel.topic);
 
     if (!metadata) {
-      return interaction.reply({
-        content: '❌ This command can only be used inside a ticket channel.',
-        ephemeral: true
+      return interaction.editReply({
+        content: '❌ This command can only be used inside a ticket channel.'
       });
     }
 
     if (!isStaff(interaction.member)) {
-      return interaction.reply({
-        content: '❌ Only staff members can add users to tickets.',
-        ephemeral: true
+      return interaction.editReply({
+        content: '❌ Only staff members can add users to tickets.'
       });
     }
 
@@ -47,9 +51,8 @@ module.exports = {
     }
 
     if (!targetUser) {
-      return interaction.reply({
-        content: '❌ Please specify a valid user to add (either select a user or provide a valid User ID).',
-        ephemeral: true
+      return interaction.editReply({
+        content: '❌ Please specify a valid user to add (either select a user or provide a valid User ID).'
       });
     }
 
@@ -68,14 +71,13 @@ module.exports = {
         .setColor(0x57F287)
         .setTimestamp();
 
-      return interaction.reply({
+      return interaction.editReply({
         embeds: [addEmbed]
       });
     } catch (error) {
       console.error('Error adding user to ticket:', error);
-      return interaction.reply({
-        content: `❌ Failed to add user to ticket: ${error.message}`,
-        ephemeral: true
+      return interaction.editReply({
+        content: `❌ Failed to add user to ticket: ${error.message}`
       });
     }
   }

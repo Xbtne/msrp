@@ -13,29 +13,35 @@ module.exports = {
     ),
 
   async execute(interaction) {
+    try {
+      if (!interaction.deferred && !interaction.replied) {
+        await interaction.deferReply({ ephemeral: false });
+      }
+    } catch (e) {}
+
     const targetUser = interaction.options.getUser('target');
     const reason = interaction.options.getString('reason') || 'No reason provided';
 
     const targetMember = await interaction.guild.members.fetch(targetUser.id).catch(() => null);
 
     if (!targetMember) {
-      return interaction.reply({ content: '❌ That member is not in this server.', ephemeral: true });
+      return interaction.editReply({ content: '❌ That member is not in this server.' });
     }
 
     if (targetMember.id === interaction.guild.ownerId) {
-      return interaction.reply({ content: '❌ You cannot kick the server owner.', ephemeral: true });
+      return interaction.editReply({ content: '❌ You cannot kick the server owner.' });
     }
 
     if (targetMember.id === interaction.user.id) {
-      return interaction.reply({ content: '❌ You cannot kick yourself.', ephemeral: true });
+      return interaction.editReply({ content: '❌ You cannot kick yourself.' });
     }
 
     if (targetMember.roles.highest.position >= interaction.member.roles.highest.position && interaction.user.id !== interaction.guild.ownerId) {
-      return interaction.reply({ content: '❌ You cannot kick this member because they have an equal or higher role than you.', ephemeral: true });
+      return interaction.editReply({ content: '❌ You cannot kick this member because they have an equal or higher role than you.' });
     }
 
     if (!targetMember.kickable) {
-      return interaction.reply({ content: '❌ I cannot kick this member. Check my role hierarchy and permissions.', ephemeral: true });
+      return interaction.editReply({ content: '❌ I cannot kick this member. Check my role hierarchy and permissions.' });
     }
 
     // Try to DM user before kicking
@@ -62,10 +68,10 @@ module.exports = {
         .setThumbnail(targetUser.displayAvatarURL({ dynamic: true }))
         .setTimestamp();
 
-      return interaction.reply({ embeds: [kickEmbed] });
+      return interaction.editReply({ embeds: [kickEmbed] });
     } catch (err) {
       console.error('Kick error:', err);
-      return interaction.reply({ content: `❌ Failed to kick user: ${err.message}`, ephemeral: true });
+      return interaction.editReply({ content: `❌ Failed to kick user: ${err.message}` });
     }
   }
 };

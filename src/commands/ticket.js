@@ -66,14 +66,25 @@ module.exports = {
     } else if (subcommand === 'transcript') {
       return handleTicketTranscript(interaction);
     } else if (subcommand === 'add') {
+      try {
+        if (!interaction.deferred && !interaction.replied) {
+          await interaction.deferReply({ ephemeral: false });
+        }
+      } catch (e) {}
+
       if (!isStaff(interaction.member)) {
-        return interaction.reply({
-          content: '❌ Only staff members can add users to tickets.',
-          ephemeral: true
+        return interaction.editReply({
+          content: '❌ Only staff members can add users to tickets.'
         });
       }
 
       const targetUser = interaction.options.getUser('user');
+      if (!targetUser) {
+        return interaction.editReply({
+          content: '❌ Please specify a valid user to add.'
+        });
+      }
+
       await channel.permissionOverwrites.edit(targetUser.id, {
         ViewChannel: true,
         SendMessages: true,
@@ -82,32 +93,39 @@ module.exports = {
         ReadMessageHistory: true
       });
 
-      return interaction.reply({
-        content: `✅ Added <@${targetUser.id}> to the ticket!`,
-        ephemeral: false
+      return interaction.editReply({
+        content: `✅ Added <@${targetUser.id}> to the ticket!`
       });
     } else if (subcommand === 'remove') {
+      try {
+        if (!interaction.deferred && !interaction.replied) {
+          await interaction.deferReply({ ephemeral: false });
+        }
+      } catch (e) {}
+
       if (!isStaff(interaction.member)) {
-        return interaction.reply({
-          content: '❌ Only staff members can remove users from tickets.',
-          ephemeral: true
+        return interaction.editReply({
+          content: '❌ Only staff members can remove users from tickets.'
         });
       }
 
       const targetUser = interaction.options.getUser('user');
+      if (!targetUser) {
+        return interaction.editReply({
+          content: '❌ Please specify a valid user to remove.'
+        });
+      }
 
       if (targetUser.id === metadata.ownerId) {
-        return interaction.reply({
-          content: '❌ You cannot remove the ticket owner from their own ticket.',
-          ephemeral: true
+        return interaction.editReply({
+          content: '❌ You cannot remove the ticket owner from their own ticket.'
         });
       }
 
       await channel.permissionOverwrites.delete(targetUser.id);
 
-      return interaction.reply({
-        content: `✅ Removed <@${targetUser.id}> from the ticket.`,
-        ephemeral: false
+      return interaction.editReply({
+        content: `✅ Removed <@${targetUser.id}> from the ticket.`
       });
     }
   }

@@ -15,6 +15,12 @@ module.exports = {
     ),
 
   async execute(interaction) {
+    try {
+      if (!interaction.deferred && !interaction.replied) {
+        await interaction.deferReply({ ephemeral: false });
+      }
+    } catch (e) {}
+
     const seconds = interaction.options.getInteger('seconds');
     const channel = interaction.channel;
 
@@ -31,10 +37,10 @@ module.exports = {
         .setColor(seconds === 0 ? 0x57F287 : 0x5865F2)
         .setTimestamp();
 
-      return interaction.reply({ embeds: [embed] });
+      return interaction.editReply({ embeds: [embed] });
     } catch (err) {
       console.error('Slowmode error:', err);
-      return interaction.reply({ content: `❌ Failed to set slowmode: ${err.message}`, ephemeral: true });
+      return interaction.editReply({ content: `❌ Failed to set slowmode: ${err.message}` });
     }
   }
 };

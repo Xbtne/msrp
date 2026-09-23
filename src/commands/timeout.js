@@ -42,29 +42,35 @@ module.exports = {
     ),
 
   async execute(interaction) {
+    try {
+      if (!interaction.deferred && !interaction.replied) {
+        await interaction.deferReply({ ephemeral: false });
+      }
+    } catch (e) {}
+
     const subcommand = interaction.options.getSubcommand();
     const targetUser = interaction.options.getUser('target');
     const reason = interaction.options.getString('reason') || 'No reason provided';
     const targetMember = await interaction.guild.members.fetch(targetUser.id).catch(() => null);
 
     if (!targetMember) {
-      return interaction.reply({ content: '❌ That member is not in this server.', ephemeral: true });
+      return interaction.editReply({ content: '❌ That member is not in this server.' });
     }
 
     if (targetMember.id === interaction.guild.ownerId) {
-      return interaction.reply({ content: '❌ You cannot timeout the server owner.', ephemeral: true });
+      return interaction.editReply({ content: '❌ You cannot timeout the server owner.' });
     }
 
     if (targetMember.id === interaction.user.id) {
-      return interaction.reply({ content: '❌ You cannot timeout yourself.', ephemeral: true });
+      return interaction.editReply({ content: '❌ You cannot timeout yourself.' });
     }
 
     if (targetMember.roles.highest.position >= interaction.member.roles.highest.position && interaction.user.id !== interaction.guild.ownerId) {
-      return interaction.reply({ content: '❌ You cannot moderate this member due to role hierarchy.', ephemeral: true });
+      return interaction.editReply({ content: '❌ You cannot moderate this member due to role hierarchy.' });
     }
 
     if (!targetMember.moderatable) {
-      return interaction.reply({ content: '❌ I cannot moderate this member. Check my role hierarchy.', ephemeral: true });
+      return interaction.editReply({ content: '❌ I cannot moderate this member. Check my role hierarchy.' });
     }
 
     if (subcommand === 'set') {
@@ -72,9 +78,8 @@ module.exports = {
       const durationMs = parseDuration(durationStr);
 
       if (!durationMs || durationMs < 5000 || durationMs > 28 * 24 * 60 * 60 * 1000) {
-        return interaction.reply({
-          content: '❌ Invalid duration. Please provide a duration like `60s`, `10m`, `2h`, or `1d` (up to 28 days).',
-          ephemeral: true
+        return interaction.editReply({
+          content: '❌ Invalid duration. Please provide a duration like `60s`, `10m`, `2h`, or `1d` (up to 28 days).'
         });
       }
 
@@ -93,10 +98,10 @@ module.exports = {
           .setThumbnail(targetUser.displayAvatarURL({ dynamic: true }))
           .setTimestamp();
 
-        return interaction.reply({ embeds: [embed] });
+        return interaction.editReply({ embeds: [embed] });
       } catch (err) {
         console.error('Timeout error:', err);
-        return interaction.reply({ content: `❌ Failed to timeout: ${err.message}`, ephemeral: true });
+        return interaction.editReply({ content: `❌ Failed to timeout: ${err.message}` });
       }
     } else if (subcommand === 'remove') {
       try {
@@ -112,10 +117,10 @@ module.exports = {
           )
           .setTimestamp();
 
-        return interaction.reply({ embeds: [embed] });
+        return interaction.editReply({ embeds: [embed] });
       } catch (err) {
         console.error('Untimeout error:', err);
-        return interaction.reply({ content: `❌ Failed to remove timeout: ${err.message}`, ephemeral: true });
+        return interaction.editReply({ content: `❌ Failed to remove timeout: ${err.message}` });
       }
     }
   }

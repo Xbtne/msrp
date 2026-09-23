@@ -18,6 +18,12 @@ module.exports = {
     ),
 
   async execute(interaction) {
+    try {
+      if (!interaction.deferred && !interaction.replied) {
+        await interaction.deferReply({ ephemeral: false });
+      }
+    } catch (e) {}
+
     const subcommand = interaction.options.getSubcommand();
     const channel = interaction.channel;
     const everyoneRole = interaction.guild.roles.everyone;
@@ -37,10 +43,10 @@ module.exports = {
           .setColor(0xED4245)
           .setTimestamp();
 
-        return interaction.reply({ embeds: [lockEmbed] });
+        return interaction.editReply({ embeds: [lockEmbed] });
       } catch (err) {
         console.error('Lock error:', err);
-        return interaction.reply({ content: `❌ Failed to lock channel: ${err.message}`, ephemeral: true });
+        return interaction.editReply({ content: `❌ Failed to lock channel: ${err.message}` });
       }
     } else if (subcommand === 'unlock') {
       try {
@@ -55,10 +61,10 @@ module.exports = {
           .setColor(0x57F287)
           .setTimestamp();
 
-        return interaction.reply({ embeds: [unlockEmbed] });
+        return interaction.editReply({ embeds: [unlockEmbed] });
       } catch (err) {
         console.error('Unlock error:', err);
-        return interaction.reply({ content: `❌ Failed to unlock channel: ${err.message}`, ephemeral: true });
+        return interaction.editReply({ content: `❌ Failed to unlock channel: ${err.message}` });
       }
     }
   }

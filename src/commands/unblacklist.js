@@ -5,17 +5,22 @@ const { getBlacklist, saveBlacklist } = require('./blacklist');
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('unblacklist')
-    .setDescription('Shortcut to unblacklist a user from creating tickets')
-    .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers)
+    .setDescription('Shortcut to unblacklist a user from records')
+    .setDefaultMemberPermissions(PermissionFlagsBits.SendMessages)
     .addUserOption(opt =>
       opt.setName('user').setDescription('The user to unblacklist').setRequired(true)
     ),
 
   async execute(interaction) {
+    try {
+      if (!interaction.deferred && !interaction.replied) {
+        await interaction.deferReply({ ephemeral: false });
+      }
+    } catch (e) {}
+
     if (!isStaff(interaction.member)) {
-      return interaction.reply({
-        content: '❌ You do not have permission to manage the ticket blacklist.',
-        ephemeral: true
+      return interaction.editReply({
+        content: '❌ You do not have permission to manage the ticket blacklist.'
       });
     }
 
@@ -23,25 +28,19 @@ module.exports = {
     const blacklist = getBlacklist();
     if (!blacklist[guildId]) blacklist[guildId] = {};
 
-    let targetUser = interaction.options.getUser('user');
-    const targetUserIdInput = interaction.options.getString('user_id');
+    const targetUser = interaction.options.getUser('user');
 
-    let targetId = targetUser?.id;
-    if (!targetId && targetUserIdInput) {
-      targetId = targetUserIdInput.replace(/[<@!>]/g, '').trim();
-    }
-
-    if (!targetId) {
-      return interaction.reply({
-        content: '❌ Please specify a valid user or User ID to unblacklist.',
-        ephemeral: true
+    if (!targetUser) {
+      return interaction.editReply({
+        content: '❌ Please specify a valid user.'
       });
     }
 
+    const targetId = targetUser.id;
+
     if (!blacklist[guildId][targetId]) {
-      return interaction.reply({
-        content: `⚠️ User <@${targetId}> is not currently blacklisted.`,
-        ephemeral: true
+      return interaction.editReply({
+        content: `⚠️ User <@${targetId}> is not currently blacklisted.`
       });
     }
 
@@ -50,23 +49,20 @@ module.exports = {
 
     // Try to DM user
     try {
-      const fetchedUser = targetUser || (await interaction.client.users.fetch(targetId).catch(() => null));
-      if (fetchedUser) {
-        const dmEmbed = new EmbedBuilder()
-          .setTitle(`✅ Ticket Blacklist Removed: ${interaction.guild.name}`)
-          .setDescription(`Your ticket blacklist in **${interaction.guild.name}** has been removed. You may now create tickets again.`)
-          .setColor(0x57F287)
-          .setTimestamp();
-        await fetchedUser.send({ embeds: [dmEmbed] });
-      }
+      const dmEmbed = new EmbedBuilder()
+        .setTitle(`✅ Blacklist Removed: ${interaction.guild.name}`)
+        .setDescription(`Your blacklist record in **${interaction.guild.name}** has been removed.`)
+        .setColor(0x57F287)
+        .setTimestamp();
+      await targetUser.send({ embeds: [dmEmbed] });
     } catch (dmErr) {}
 
     const embed = new EmbedBuilder()
       .setTitle('🔓 User Unblacklisted')
-      .setDescription(`**<@${targetId}>** has been removed from the ticket blacklist.`)
+      .setDescription(`**<@${targetId}>** has been removed from the blacklist.`)
       .setColor(0x57F287)
       .setTimestamp();
 
-    return interaction.reply({ embeds: [embed] });
+    return interaction.editReply({ embeds: [embed] });
   }
 };

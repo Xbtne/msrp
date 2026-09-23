@@ -20,20 +20,24 @@ module.exports = {
     ),
 
   async execute(interaction) {
+    try {
+      if (!interaction.deferred && !interaction.replied) {
+        await interaction.deferReply({ ephemeral: false });
+      }
+    } catch (e) {}
+
     const channel = interaction.channel;
     const metadata = parseTicketTopic(channel.topic);
 
     if (!metadata) {
-      return interaction.reply({
-        content: '❌ This command can only be used inside a ticket channel.',
-        ephemeral: true
+      return interaction.editReply({
+        content: '❌ This command can only be used inside a ticket channel.'
       });
     }
 
     if (!isStaff(interaction.member)) {
-      return interaction.reply({
-        content: '❌ Only staff members can remove users from tickets.',
-        ephemeral: true
+      return interaction.editReply({
+        content: '❌ Only staff members can remove users from tickets.'
       });
     }
 
@@ -46,16 +50,14 @@ module.exports = {
     }
 
     if (!targetUser) {
-      return interaction.reply({
-        content: '❌ Please specify a valid user to remove (either select a user or provide a valid User ID).',
-        ephemeral: true
+      return interaction.editReply({
+        content: '❌ Please specify a valid user to remove (either select a user or provide a valid User ID).'
       });
     }
 
     if (targetUser.id === metadata.ownerId) {
-      return interaction.reply({
-        content: '❌ You cannot remove the ticket creator from their own ticket.',
-        ephemeral: true
+      return interaction.editReply({
+        content: '❌ You cannot remove the ticket creator from their own ticket.'
       });
     }
 
@@ -68,14 +70,13 @@ module.exports = {
         .setColor(0xED4245)
         .setTimestamp();
 
-      return interaction.reply({
+      return interaction.editReply({
         embeds: [removeEmbed]
       });
     } catch (error) {
       console.error('Error removing user from ticket:', error);
-      return interaction.reply({
-        content: `❌ Failed to remove user from ticket: ${error.message}`,
-        ephemeral: true
+      return interaction.editReply({
+        content: `❌ Failed to remove user from ticket: ${error.message}`
       });
     }
   }

@@ -21,6 +21,12 @@ module.exports = {
     ),
 
   async execute(interaction) {
+    try {
+      if (!interaction.deferred && !interaction.replied) {
+        await interaction.deferReply({ ephemeral: false });
+      }
+    } catch (e) {}
+
     const targetUser = interaction.options.getUser('target');
     const reason = interaction.options.getString('reason') || 'No reason provided';
     const deleteDays = interaction.options.getInteger('delete_messages') || 0;
@@ -29,19 +35,19 @@ module.exports = {
 
     if (targetMember) {
       if (targetMember.id === interaction.guild.ownerId) {
-        return interaction.reply({ content: '❌ You cannot ban the server owner.', ephemeral: true });
+        return interaction.editReply({ content: '❌ You cannot ban the server owner.' });
       }
 
       if (targetMember.id === interaction.user.id) {
-        return interaction.reply({ content: '❌ You cannot ban yourself.', ephemeral: true });
+        return interaction.editReply({ content: '❌ You cannot ban yourself.' });
       }
 
       if (targetMember.roles.highest.position >= interaction.member.roles.highest.position && interaction.user.id !== interaction.guild.ownerId) {
-        return interaction.reply({ content: '❌ You cannot ban this member because they have an equal or higher role than you.', ephemeral: true });
+        return interaction.editReply({ content: '❌ You cannot ban this member because they have an equal or higher role than you.' });
       }
 
       if (!targetMember.bannable) {
-        return interaction.reply({ content: '❌ I cannot ban this member. Check my role hierarchy and permissions.', ephemeral: true });
+        return interaction.editReply({ content: '❌ I cannot ban this member. Check my role hierarchy and permissions.' });
       }
 
       // Send DM to user before ban
@@ -52,9 +58,7 @@ module.exports = {
           .setColor(0xED4245)
           .setTimestamp();
         await targetMember.send({ embeds: [dmEmbed] });
-      } catch (err) {
-        // DM failed, continue ban
-      }
+      } catch (err) {}
     }
 
     try {
@@ -74,10 +78,10 @@ module.exports = {
         .setThumbnail(targetUser.displayAvatarURL({ dynamic: true }))
         .setTimestamp();
 
-      return interaction.reply({ embeds: [banEmbed] });
+      return interaction.editReply({ embeds: [banEmbed] });
     } catch (err) {
       console.error('Ban error:', err);
-      return interaction.reply({ content: `❌ Failed to ban user: ${err.message}`, ephemeral: true });
+      return interaction.editReply({ content: `❌ Failed to ban user: ${err.message}` });
     }
   }
 };

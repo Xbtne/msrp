@@ -30,6 +30,12 @@ module.exports = {
       });
     }
 
+    try {
+      if (!interaction.deferred && !interaction.replied) {
+        await interaction.deferReply({ ephemeral: true });
+      }
+    } catch (e) {}
+
     const targetChannel = interaction.options.getChannel('channel') || interaction.channel;
     const config = getConfig();
 
@@ -84,15 +90,13 @@ module.exports = {
 
     try {
       await targetChannel.send({ embeds: [embed], components: rows });
-      return interaction.reply({
-        content: `✅ Successfully sent the ticket panel to ${targetChannel}!`,
-        ephemeral: true
+      return interaction.editReply({
+        content: `✅ Successfully sent the ticket panel to ${targetChannel}!`
       });
     } catch (error) {
       console.error('Error sending ticket panel:', error);
-      return interaction.reply({
-        content: `❌ Failed to send panel: ${error.message}`,
-        ephemeral: true
+      return interaction.editReply({
+        content: `❌ Failed to send panel: ${error.message}`
       });
     }
   }

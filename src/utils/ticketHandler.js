@@ -280,32 +280,39 @@ async function handleTicketCreate(interaction, typeId) {
  */
 async function handleTicketClaim(interaction) {
   if (!isStaff(interaction.member)) {
-    return interaction.reply({
-      content: '❌ Only staff members can claim tickets.',
-      ephemeral: true
-    });
+    const errorMsg = '❌ Only staff members can claim tickets.';
+    if (interaction.deferred || interaction.replied) {
+      return interaction.editReply({ content: errorMsg });
+    }
+    return interaction.reply({ content: errorMsg, ephemeral: true });
   }
 
   const channel = interaction.channel;
   const metadata = parseTicketTopic(channel.topic);
 
   if (!metadata) {
-    return interaction.reply({
-      content: '❌ This channel is not a valid ticket channel.',
-      ephemeral: true
-    });
+    const errorMsg = '❌ This channel is not a valid ticket channel.';
+    if (interaction.deferred || interaction.replied) {
+      return interaction.editReply({ content: errorMsg });
+    }
+    return interaction.reply({ content: errorMsg, ephemeral: true });
   }
 
   if (metadata.claimedBy && metadata.claimedBy !== 'None') {
-    return interaction.reply({
-      content: `⚠️ This ticket is already claimed by <@${metadata.claimedBy}>.`,
-      ephemeral: true
-    });
+    const errorMsg = `⚠️ This ticket is already claimed by <@${metadata.claimedBy}>.`;
+    if (interaction.deferred || interaction.replied) {
+      return interaction.editReply({ content: errorMsg });
+    }
+    return interaction.reply({ content: errorMsg, ephemeral: true });
   }
 
   try {
     if (!interaction.deferred && !interaction.replied) {
-      await interaction.deferUpdate();
+      if (interaction.isButton && interaction.isButton()) {
+        await interaction.deferUpdate();
+      } else {
+        await interaction.deferReply({ ephemeral: false });
+      }
     }
   } catch (err) {
     if (err.code === 40060 || err.code === 10062) return;
@@ -339,7 +346,11 @@ async function handleTicketClaim(interaction) {
     .setColor(0x57F287)
     .setTimestamp();
 
-  await channel.send({ embeds: [claimNotificationEmbed] });
+  if (interaction.isChatInputCommand && interaction.isChatInputCommand()) {
+    await interaction.editReply({ embeds: [claimNotificationEmbed] });
+  } else {
+    await channel.send({ embeds: [claimNotificationEmbed] });
+  }
 }
 
 /**
@@ -347,33 +358,40 @@ async function handleTicketClaim(interaction) {
  */
 async function handleTicketUnclaim(interaction) {
   if (!isStaff(interaction.member)) {
-    return interaction.reply({
-      content: '❌ Only staff members can unclaim tickets.',
-      ephemeral: true
-    });
+    const errorMsg = '❌ Only staff members can unclaim tickets.';
+    if (interaction.deferred || interaction.replied) {
+      return interaction.editReply({ content: errorMsg });
+    }
+    return interaction.reply({ content: errorMsg, ephemeral: true });
   }
 
   const channel = interaction.channel;
   const metadata = parseTicketTopic(channel.topic);
 
   if (!metadata || !metadata.claimedBy || metadata.claimedBy === 'None') {
-    return interaction.reply({
-      content: '⚠️ This ticket is not currently claimed.',
-      ephemeral: true
-    });
+    const errorMsg = '⚠️ This ticket is not currently claimed.';
+    if (interaction.deferred || interaction.replied) {
+      return interaction.editReply({ content: errorMsg });
+    }
+    return interaction.reply({ content: errorMsg, ephemeral: true });
   }
 
   // Only the claiming staff member or an administrator can unclaim
   if (metadata.claimedBy !== interaction.user.id && !interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
-    return interaction.reply({
-      content: `❌ Only <@${metadata.claimedBy}> or an Administrator can unclaim this ticket.`,
-      ephemeral: true
-    });
+    const errorMsg = `❌ Only <@${metadata.claimedBy}> or an Administrator can unclaim this ticket.`;
+    if (interaction.deferred || interaction.replied) {
+      return interaction.editReply({ content: errorMsg });
+    }
+    return interaction.reply({ content: errorMsg, ephemeral: true });
   }
 
   try {
     if (!interaction.deferred && !interaction.replied) {
-      await interaction.deferUpdate();
+      if (interaction.isButton && interaction.isButton()) {
+        await interaction.deferUpdate();
+      } else {
+        await interaction.deferReply({ ephemeral: false });
+      }
     }
   } catch (err) {
     if (err.code === 40060 || err.code === 10062) return;
@@ -407,7 +425,11 @@ async function handleTicketUnclaim(interaction) {
     .setColor(0xED4245)
     .setTimestamp();
 
-  await channel.send({ embeds: [unclaimNotificationEmbed] });
+  if (interaction.isChatInputCommand && interaction.isChatInputCommand()) {
+    await interaction.editReply({ embeds: [unclaimNotificationEmbed] });
+  } else {
+    await channel.send({ embeds: [unclaimNotificationEmbed] });
+  }
 }
 
 /**

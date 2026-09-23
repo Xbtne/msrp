@@ -64,15 +64,27 @@ module.exports = {
     ),
 
   async execute(interaction) {
+    const isAnonymous = interaction.options.getBoolean('anonymous') || false;
+
+    try {
+      if (!interaction.deferred && !interaction.replied) {
+        await interaction.deferReply({ ephemeral: isAnonymous });
+      }
+    } catch (e) {}
+
     const targetStaff = interaction.options.getUser('staff');
     const rating = interaction.options.getInteger('rating');
     const reviewText = interaction.options.getString('review');
-    const isAnonymous = interaction.options.getBoolean('anonymous') || false;
+
+    if (!targetStaff) {
+      return interaction.editReply({
+        content: '❌ Please specify a valid staff member to review.'
+      });
+    }
 
     if (targetStaff.bot) {
-      return interaction.reply({
-        content: '❌ You cannot submit a staff review for a bot.',
-        ephemeral: true
+      return interaction.editReply({
+        content: '❌ You cannot submit a staff review for a bot.'
       });
     }
 
@@ -149,15 +161,14 @@ module.exports = {
       if (reviewsChannel) {
         await reviewsChannel.send({ embeds: [reviewEmbed] }).catch(console.error);
 
-        return interaction.reply({
-          content: `✅ Thank you! Your **${rating}⭐ review** for <@${targetStaff.id}> has been posted to ${reviewsChannel}!`,
-          ephemeral: true
+        return interaction.editReply({
+          content: `✅ Thank you! Your **${rating}⭐ review** for <@${targetStaff.id}> has been posted to ${reviewsChannel}!`
         });
       }
     }
 
     // Otherwise, post directly in current channel
-    return interaction.reply({
+    return interaction.editReply({
       embeds: [reviewEmbed]
     });
   }
