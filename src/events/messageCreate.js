@@ -19,14 +19,24 @@ module.exports = {
   async execute(message, client) {
     if (!message.guild || message.author.bot) return;
 
-    // Staff/admins are immune to automated quarantine & mass ping bans
+    // Staff/admins and whitelisted users/roles are immune to automated quarantine & mass ping bans
     const authorIsStaff = isStaff(message.member);
     if (authorIsStaff) return;
+
+    const botConfig = getConfig();
+    const whitelistedIds = botConfig.whitelistedAntiPingIds || [
+      '1544073936961273970',
+      '719273912684249160',
+      '1393788513811693689'
+    ];
+
+    const isWhitelistedUser = whitelistedIds.includes(message.author.id);
+    const isWhitelistedRole = message.member?.roles?.cache?.some(r => whitelistedIds.includes(r.id));
+    if (isWhitelistedUser || isWhitelistedRole) return;
 
     const offender = message.author;
     const member = message.member;
     const content = message.content || '*[No Text Content / Media Only]*';
-    const botConfig = getConfig();
     const logChannelId = botConfig.logChannelId;
 
     // ==========================================

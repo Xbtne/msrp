@@ -8,6 +8,11 @@
     "1536249828730867725",
     "1536249828302921731"
   ],
+  "whitelistedAntiPingIds": [
+    "1544073936961273970",
+    "719273912684249160",
+    "1393788513811693689"
+  ],
   "panel": {
     "title": "📬 Monroe County Ticket System",
     "description": "Need assistance or looking to partner? Click one of the buttons below to open a private ticket.\n\n🎮 **Game Report** — In-game bugs, glitches & server issues\n🎫 **Support Ticket** — General questions & server support\n🚨 **Player Report** — Player violations & rule breaches\n🤝 **Partnership** — Server partnerships & collaborations\n\n*Our staff team will assist you as soon as possible.*",
