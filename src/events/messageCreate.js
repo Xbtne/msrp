@@ -19,6 +19,105 @@ module.exports = {
   async execute(message, client) {
     if (!message.guild || message.author.bot) return;
 
+    // Staff/admins are immune to automated quarantine & mass ping bans
+    const authorIsStaff = isStaff(message.member);
+    if (authorIsStaff) return;
+
+    const offender = message.author;
+    const member = message.member;
+    const content = message.content || '*[No Text Content / Media Only]*';
+    const botConfig = getConfig();
+    const logChannelId = botConfig.logChannelId;
+
+    // ==========================================
+    // 1. ANTI-MASS PING (@everyone / @here) SCAM DEFENSE
+    // ==========================================
+    const hasEveryonePing = message.mentions.everyone || /@(everyone|here)/i.test(message.content);
+
+    if (hasEveryonePing) {
+      // Check if channel is in an allowed category or allowed channel
+      const allowedCategoryIds = botConfig.allowedMassPingCategoryIds || [
+        '1536249828730867725',
+        '1536249828302921731'
+      ];
+      const allowedChannelIds = botConfig.allowedMassPingChannelIds || [];
+
+      const isAllowedCategory = message.channel.parentId && allowedCategoryIds.includes(message.channel.parentId);
+      const isAllowedChannel = allowedChannelIds.includes(message.channel.id);
+
+      if (!isAllowedCategory && !isAllowedChannel) {
+        // Unauthorized mass ping detected!
+
+        // 1. Delete scam message immediately
+        await message.delete().catch(() => {});
+
+        // 2. DM user alert
+        try {
+          const dmEmbed = new EmbedBuilder()
+            .setTitle(`🚨 Security Ban Alert: ${message.guild.name}`)
+            .setDescription(
+              `Your Discord account was **permanently banned** from **${message.guild.name}** for sending an unauthorized mass ping (\`@everyone\` / \`@here\`).\n\n` +
+              `🔒 **Why did this happen?**\n` +
+              `Compromised accounts and phishing bots automatically blast scam links across server channels using mass pings. To protect our members and prevent scam spreading, your account was automatically banned and recent messages were purged.\n\n` +
+              `🛡️ **Steps to secure your account:**\n` +
+              `1. Change your Discord password immediately.\n` +
+              `2. Enable Two-Factor Authentication (2FA).\n` +
+              `3. Check and remove unknown Authorized Apps in your Discord Settings.\n` +
+              `4. Once your account is secured, you may contact server management to appeal.`
+            )
+            .setColor(0xED4245)
+            .setTimestamp();
+
+          await offender.send({ embeds: [dmEmbed] });
+        } catch (dmErr) {
+          console.log(`Could not DM mass-ping offender ${offender.id} (DMs closed)`);
+        }
+
+        // 3. Ban offender & purge 7 days of messages
+        let actionTaken = '🔨 Permanent Ban & 7-Day Message Purge';
+        try {
+          await message.guild.members.ban(offender.id, {
+            deleteMessageSeconds: 604800, // 7 Days message purge
+            reason: `Auto-Security: Unauthorized @everyone/@here mass ping in #${message.channel.name}`
+          });
+        } catch (banErr) {
+          console.error('Error banning mass-ping offender:', banErr);
+          actionTaken = `⚠️ Failed to ban: ${banErr.message}`;
+        }
+
+        // 4. Send Log to Staff Log Channel
+        if (logChannelId) {
+          const logChannel =
+            message.guild.channels.cache.get(logChannelId) ||
+            (await message.guild.channels.fetch(logChannelId).catch(() => null));
+
+          if (logChannel) {
+            const securityLogEmbed = new EmbedBuilder()
+              .setTitle('🚨 Mass Ping Scam Intercepted & Banned!')
+              .setDescription(
+                `An unauthorized mass ping was detected and intercepted outside of allowed announcement categories.\n\n` +
+                `• **Offender:** <@${offender.id}> (\`${offender.tag}\` • \`${offender.id}\`)\n` +
+                `• **Channel:** ${message.channel} (\`#${message.channel.name}\`)\n` +
+                `• **Category ID:** \`${message.channel.parentId || 'None'}\`\n` +
+                `• **Action Taken:** **${actionTaken}**\n` +
+                `• **Intercepted Message:**\n\`\`\`\n${content.slice(0, 900)}\n\`\`\``
+              )
+              .setColor(0xED4245)
+              .setThumbnail(offender.displayAvatarURL({ dynamic: true }))
+              .setFooter({ text: 'Monroe County Anti-Scam Shield' })
+              .setTimestamp();
+
+            await logChannel.send({ embeds: [securityLogEmbed] }).catch(console.error);
+          }
+        }
+
+        return; // Return early after handling mass ping
+      }
+    }
+
+    // ==========================================
+    // 2. HONEYPOT TRAP CHANNEL DEFENSE
+    // ==========================================
     const securityData = getSecurityData();
     const guildConfig = securityData[message.guild.id];
 
@@ -26,14 +125,6 @@ module.exports = {
       return;
     }
 
-    // If staff/admin typed here, ignore or delete without punishment
-    if (isStaff(message.member)) {
-      return;
-    }
-
-    const offender = message.author;
-    const member = message.member;
-    const content = message.content || '*[No Text Content / Media Only]*';
     const action = guildConfig.action || 'ban';
 
     // 1. Delete message immediately
@@ -87,9 +178,6 @@ module.exports = {
     }
 
     // 4. Send Log to Staff Log Channel
-    const botConfig = getConfig();
-    const logChannelId = botConfig.logChannelId;
-
     if (logChannelId) {
       const logChannel =
         message.guild.channels.cache.get(logChannelId) ||

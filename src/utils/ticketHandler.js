@@ -28,6 +28,9 @@ function getConfig() {
   if (process.env.STAFF_ROLE_IDS) {
     config.staffRoleIds = process.env.STAFF_ROLE_IDS.split(',').map(id => id.trim());
   }
+  if (process.env.ALLOWED_PING_CATEGORY_IDS) {
+    config.allowedMassPingCategoryIds = process.env.ALLOWED_PING_CATEGORY_IDS.split(',').map(id => id.trim());
+  }
 
   return config;
 }
