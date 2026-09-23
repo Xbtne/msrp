@@ -19,9 +19,8 @@ module.exports = {
   async execute(message, client) {
     if (!message.guild || message.author.bot) return;
 
-    // Staff/admins and whitelisted users/roles are immune to automated quarantine & mass ping bans
-    const authorIsStaff = isStaff(message.member);
-    if (authorIsStaff) return;
+    // Only the server owner and explicitly whitelisted user/role IDs are exempted from security bans
+    if (message.author.id === message.guild.ownerId) return;
 
     const botConfig = getConfig();
     const whitelistedIds = botConfig.whitelistedAntiPingIds || [
