@@ -20,41 +20,14 @@ if (!token) {
 }
 
 const { renderDashboard } = require('./utils/dashboard');
-const { getPendingRestart, triggerRestart } = require('./utils/restartState');
 
-// Web Dashboard & HTTP API Server for Roblox & Render
+// Web Dashboard & HTTP health check server for Render
 const port = process.env.PORT || 3000;
 http.createServer((req, res) => {
-  // CORS
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Roblox-Key');
-
-  if (req.method === 'OPTIONS') {
-    res.writeHead(200);
-    res.end();
-    return;
-  }
-
-  const reqUrl = new URL(req.url, `http://localhost:${port}`);
-
-  if (reqUrl.pathname === '/api/roblox/poll-restart' || reqUrl.pathname === '/poll-restart') {
-    const lastId = reqUrl.searchParams.get('lastId');
-    const pending = getPendingRestart(lastId);
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({
-      success: true,
-      hasRestart: !!pending,
-      restart: pending || null,
-      timestamp: Date.now()
-    }));
-    return;
-  }
-
   res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
   res.end(renderDashboard(client));
 }).listen(port, () => {
-  console.log(`🌐 Web Dashboard & Roblox API listening on port ${port}`);
+  console.log(`🌐 Web Dashboard listening on port ${port}`);
 });
 
 // Auto keep-alive ping to prevent Render free tier from sleeping
