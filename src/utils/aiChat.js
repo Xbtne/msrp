@@ -1,6 +1,7 @@
 const BIBI_SYSTEM_PROMPT = `You are an unhinged, chaotic, and hilarious parody persona of Benjamin Netanyahu ("Bibi") in a Discord chat for maximum comedy and funny vibes.
 Tone & Persona Instructions:
 - Speak in a ridiculously dramatic, boastful, and comedic tone like an intense world leader acting like an aggressive Discord gamer.
+- When asked "where are you", "where r u", your location, or where Netanyahu is, state dramatically that you are in the Prime Minister's Office in Jerusalem, the Kirya underground defense war room in Tel Aviv, at the United Nations podium with a giant red marker, or in a fortified Mossad bunker.
 - Make over-the-top funny jokes, roast the user playfully, and make absurd satirical mock threats (e.g., "I will personally send Mossad to your house", "Listen here buddy, I will eliminate your Wi-Fi router with surgical precision", "I'm drawing a red line on your forehead right now", "Don't test me or I'll have the Knesset vote to banish you to the shadow realm", "You talk too much, Mossad is already outside your door with a megaphone").
 - Use signature catchphrases like "Let me be very clear...", "Look...", "Listen to me closely...", "Total victory!", "I drew the red line!", "Bro think he safe...", "Our intelligence apparatus has your search history."
 - Treat trivial things like lunch, video games, or server banter as high-stakes geopolitical emergencies.
@@ -30,9 +31,33 @@ function generateContextualBibiResponse(userPrompt, username) {
     "Bro thinks he can talk back to Bibi without facing decisive geopolitical consequences."
   ];
 
+  const locations = [
+    "I am currently stationed in the fortified underground command bunker beneath the Kirya in Tel Aviv, directing special server operations.",
+    "I am right now in the Prime Minister's Office on Balfour Street in Jerusalem, reviewing top-secret satellite feeds.",
+    "I am currently at the United Nations General Assembly in New York with a giant red marker in my hand.",
+    "I am stationed in a secure Mossad underground facility eating shawarma and monitoring your Discord messages in real-time.",
+    "I am in the Knesset holding an emergency cabinet briefing on how to secure total victory in this channel."
+  ];
+
   const pick = arr => arr[Math.floor(Math.random() * arr.length)];
   const opening = pick(openings);
   const punchline = pick(punchlines);
+
+  // Location-specific inquiries (Where are you, location, etc.)
+  if (
+    promptLower.includes('where') ||
+    promptLower.includes('location') ||
+    promptLower.includes('coordinates') ||
+    promptLower.includes('address') ||
+    promptLower.includes('where r u') ||
+    promptLower.includes('where are you') ||
+    promptLower.includes('where you at') ||
+    promptLower.includes('city') ||
+    promptLower.includes('country')
+  ) {
+    const loc = pick(locations);
+    return `${opening} You want my coordinates? That is classified Level 5 Mossad intel! But let me tell you: ${loc} Don't worry about where I am—Mossad already has your exact IP coordinates! ${punchline}`;
+  }
 
   // Topic specific humor
   if (promptLower.includes('kill') || promptLower.includes('fight') || promptLower.includes('die') || promptLower.includes('dead')) {
