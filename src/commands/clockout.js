@@ -1,6 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } = require('discord.js');
 const { isStaff } = require('../utils/ticketHandler');
-const { endShift, formatDuration, sendShiftAuditLog } = require('../utils/shiftHandler');
+const { endShift, formatDuration, sendShiftAuditLog, updateLivePanels } = require('../utils/shiftHandler');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -81,6 +81,9 @@ module.exports = {
       .setTimestamp();
 
     await interaction.editReply({ embeds: [clockOutEmbed] });
+
+    // Update live Clocky Duty panels in real time
+    await updateLivePanels(interaction.client, interaction.guild.id);
 
     // Send audit log to staff log channel
     await sendShiftAuditLog(interaction.guild, interaction.client, clockOutEmbed);

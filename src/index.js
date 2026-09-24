@@ -125,6 +125,19 @@ client.once(Events.ClientReady, async () => {
   } catch (error) {
     console.error('❌ Failed to register slash commands:', error);
   }
+
+  // Periodic refresh for Clocky Duty panels (every 2 minutes)
+  const { updateLivePanels, getShiftsData } = require('./utils/shiftHandler');
+  setInterval(() => {
+    try {
+      const data = getShiftsData();
+      for (const guildId of Object.keys(data)) {
+        if (data[guildId]?.panels?.length > 0) {
+          updateLivePanels(client, guildId);
+        }
+      }
+    } catch (e) {}
+  }, 2 * 60 * 1000);
 });
 
 async function startBot() {

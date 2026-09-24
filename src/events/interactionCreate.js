@@ -7,6 +7,7 @@ const {
   handleTicketConfirmClose,
   handleTicketTranscript
 } = require('../utils/ticketHandler');
+const { handleClockButton } = require('../utils/shiftHandler');
 
 module.exports = {
   name: 'interactionCreate',
@@ -45,6 +46,11 @@ module.exports = {
         if (customId.startsWith('create_ticket_')) {
           const typeId = customId.replace('create_ticket_', '');
           return await handleTicketCreate(interaction, typeId);
+        }
+
+        // Handle Clocky Duty staff controls
+        if (customId.startsWith('clock_')) {
+          return await handleClockButton(interaction);
         }
 
         // Handle Ticket Controls

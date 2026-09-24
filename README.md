@@ -57,7 +57,7 @@ The bot now includes a full suite of moderation commands:
 | `/shifts active` | List all staff members currently clocked in and on duty | Staff / Members |
 | `/shifts stats [staff]` | View activity hours, total shifts, average shift length & history | Staff / Members |
 | `/shifts leaderboard` | View staff activity leaderboard ranked by total clocked hours | Staff / Members |
-| `/shifts reset [staff]` | Reset shift activity stats for a staff member or the whole server | Administrator |
+| `/setup-duty [channel]` | Deploy the live interactive Clocky Duty panel for staff check-ins | Manage Guild / Staff |
 | `/staffreview <staff> <rating> <review> [anonymous]` | Submit a star review & feedback for a staff member | @everyone |
 | `/setupcomp [action] [channel_name]` | Deploy Honeypot channel to catch & auto-quarantine compromised accounts | Administrator |
 
