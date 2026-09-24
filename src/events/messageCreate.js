@@ -2,6 +2,7 @@ const { EmbedBuilder, PermissionFlagsBits } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
 const { isStaff, getConfig } = require('../utils/ticketHandler');
+const { handleBibiChat } = require('../utils/aiChat');
 
 const securityDataPath = path.join(__dirname, '../../data/security.json');
 
@@ -19,10 +20,19 @@ module.exports = {
   async execute(message, client) {
     if (!message.guild || message.author.bot) return;
 
+    const botConfig = getConfig();
+
+    // ==========================================
+    // 0. NETANYAHU AI CHAT (Channel: 1552470430839873677)
+    // ==========================================
+    const bibiChannelId = botConfig.bibiChannelId || '1552470430839873677';
+    if (message.channel.id === bibiChannelId && message.mentions.has(client.user.id)) {
+      return await handleBibiChat(message, client);
+    }
+
     // Only the server owner and explicitly whitelisted user/role IDs are exempted from security bans
     if (message.author.id === message.guild.ownerId) return;
 
-    const botConfig = getConfig();
     const whitelistedIds = botConfig.whitelistedAntiPingIds || [
       '1544073936961273970',
       '719273912684249160',
