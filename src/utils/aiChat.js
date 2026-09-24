@@ -100,7 +100,67 @@ function generateContextualBibiResponse(userPrompt, username) {
 async function generateBibiResponse(userPrompt, username = 'Friend') {
   const cleanPrompt = userPrompt.trim() || 'Hello Bibi!';
 
-  // 1. Check if Gemini API Key is configured
+  // 1. Groq API (Ultra-Fast Free LLM with llama-3.3-70b)
+  if (process.env.GROQ_API_KEY) {
+    try {
+      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.GROQ_API_KEY}`
+        },
+        body: JSON.stringify({
+          model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
+          messages: [
+            { role: 'system', content: BIBI_SYSTEM_PROMPT },
+            { role: 'user', content: `${username}: ${cleanPrompt}` }
+          ],
+          max_tokens: 200,
+          temperature: 0.9
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const output = data.choices?.[0]?.message?.content;
+        if (output && output.trim()) return output.trim().slice(0, 1900);
+      }
+    } catch (e) {
+      console.error('Groq AI error:', e.message);
+    }
+  }
+
+  // 2. OpenRouter API (Supports Free Models like llama-3.2-3b-instruct:free, deepseek/deepseek-r1:free)
+  if (process.env.OPENROUTER_API_KEY) {
+    try {
+      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+          'HTTP-Referer': 'https://github.com/Xbtne/msrp',
+          'X-Title': 'MRPD Bot'
+        },
+        body: JSON.stringify({
+          model: process.env.OPENROUTER_MODEL || 'meta-llama/llama-3.2-3b-instruct:free',
+          messages: [
+            { role: 'system', content: BIBI_SYSTEM_PROMPT },
+            { role: 'user', content: `${username}: ${cleanPrompt}` }
+          ],
+          max_tokens: 200,
+          temperature: 0.9
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const output = data.choices?.[0]?.message?.content;
+        if (output && output.trim()) return output.trim().slice(0, 1900);
+      }
+    } catch (e) {
+      console.error('OpenRouter AI error:', e.message);
+    }
+  }
+
+  // 3. Gemini API (Free at https://aistudio.google.com/app/apikey)
   if (process.env.GEMINI_API_KEY) {
     try {
       const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
@@ -124,18 +184,16 @@ async function generateBibiResponse(userPrompt, username = 'Friend') {
         if (output && output.trim()) return output.trim().slice(0, 1900);
       }
     } catch (e) {
-      console.error('Gemini API error:', e.message);
+      console.error('Gemini AI error:', e.message);
     }
   }
 
-  // 2. Check if OpenAI or Groq API Key is configured
-  const openAiKey = process.env.OPENAI_API_KEY || process.env.GROQ_API_KEY || process.env.AI_API_KEY;
+  // 4. OpenAI / Custom AI API Key
+  const openAiKey = process.env.OPENAI_API_KEY || process.env.AI_API_KEY || process.env.DEEPSEEK_API_KEY;
   if (openAiKey) {
     try {
-      const endpoint = process.env.GROQ_API_KEY
-        ? 'https://api.groq.com/openai/v1/chat/completions'
-        : 'https://api.openai.com/v1/chat/completions';
-      const model = process.env.GROQ_API_KEY ? 'llama-3.3-70b-versatile' : 'gpt-4o-mini';
+      const endpoint = process.env.AI_BASE_URL || (process.env.DEEPSEEK_API_KEY ? 'https://api.deepseek.com/chat/completions' : 'https://api.openai.com/v1/chat/completions');
+      const model = process.env.AI_MODEL || (process.env.DEEPSEEK_API_KEY ? 'deepseek-chat' : 'gpt-4o-mini');
 
       const res = await fetch(endpoint, {
         method: 'POST',
@@ -149,8 +207,8 @@ async function generateBibiResponse(userPrompt, username = 'Friend') {
             { role: 'system', content: BIBI_SYSTEM_PROMPT },
             { role: 'user', content: `${username}: ${cleanPrompt}` }
           ],
-          max_tokens: 180,
-          temperature: 0.85
+          max_tokens: 200,
+          temperature: 0.9
         })
       });
       if (res.ok) {
@@ -159,25 +217,30 @@ async function generateBibiResponse(userPrompt, username = 'Friend') {
         if (output && output.trim()) return output.trim().slice(0, 1900);
       }
     } catch (e) {
-      console.error('OpenAI/Groq API error:', e.message);
+      console.error('OpenAI API error:', e.message);
     }
   }
 
-  // 3. Try Pollinations Free LLM
+  // 5. Pollinations Free LLM (with API key or free tier)
   try {
+    const headers = { 'Content-Type': 'application/json' };
+    if (process.env.POLLINATIONS_API_KEY) {
+      headers['Authorization'] = `Bearer ${process.env.POLLINATIONS_API_KEY}`;
+    }
+
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 6000);
 
     const response = await fetch('https://text.pollinations.ai/', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: headers,
       body: JSON.stringify({
         messages: [
           { role: 'system', content: BIBI_SYSTEM_PROMPT },
           { role: 'user', content: `${username}: "${cleanPrompt}"` }
         ],
         model: 'openai',
-        temperature: 0.8
+        temperature: 0.9
       }),
       signal: controller.signal
     });
