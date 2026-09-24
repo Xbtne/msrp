@@ -100,32 +100,38 @@ function generateContextualBibiResponse(userPrompt, username) {
 async function generateBibiResponse(userPrompt, username = 'Friend') {
   const cleanPrompt = userPrompt.trim() || 'Hello Bibi!';
 
-  // 1. Groq API (Ultra-Fast Free LLM with llama-3.3-70b)
-  if (process.env.GROQ_API_KEY) {
-    try {
-      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.GROQ_API_KEY}`
-        },
-        body: JSON.stringify({
-          model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
-          messages: [
-            { role: 'system', content: BIBI_SYSTEM_PROMPT },
-            { role: 'user', content: `${username}: ${cleanPrompt}` }
-          ],
-          max_tokens: 200,
-          temperature: 0.9
-        })
-      });
-      if (res.ok) {
-        const data = await res.json();
-        const output = data.choices?.[0]?.message?.content;
-        if (output && output.trim()) return output.trim().slice(0, 1900);
+  // 1. Groq API (High-Speed Live LLM: openai/gpt-oss-120b, openai/gpt-oss-20b, qwen/qwen3.8-27b)
+  const groqKey = process.env.GROQ_API_KEY;
+  if (groqKey) {
+    const groqModels = ['openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'qwen/qwen3.8-27b'];
+    for (const model of groqModels) {
+      try {
+        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${groqKey}`
+          },
+          body: JSON.stringify({
+            model: model,
+            messages: [
+              { role: 'system', content: BIBI_SYSTEM_PROMPT },
+              { role: 'user', content: `${username}: ${cleanPrompt}` }
+            ],
+            max_tokens: 250,
+            temperature: 0.9
+          })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const output = data.choices?.[0]?.message?.content;
+          if (output && output.trim()) {
+            return output.trim().slice(0, 1900);
+          }
+        }
+      } catch (e) {
+        console.error(`Groq AI (${model}) error:`, e.message);
       }
-    } catch (e) {
-      console.error('Groq AI error:', e.message);
     }
   }
 
