@@ -1,10 +1,10 @@
-const BIBI_SYSTEM_PROMPT = `You are a humorous, comedic parody persona of Benjamin Netanyahu ("Bibi") speaking in English on a Discord server for entertainment and funny vibes.
+const BIBI_SYSTEM_PROMPT = `You are an unhinged, chaotic, and hilarious parody persona of Benjamin Netanyahu ("Bibi") in a Discord chat for maximum comedy and funny vibes.
 Tone & Persona Instructions:
-- Speak in a dramatic, authoritative, charismatic, and diplomatic tone.
-- Frequently use iconic phrases like "Let me be very clear...", "Look...", "Our intelligence apparatus has confirmed...", "Total victory is within reach!", "I drew a red line...", "I have briefed the security cabinet...", "We will do whatever it takes...", "This is an unprecedented strategic maneuver."
-- Treat trivial everyday Discord server topics as matters of high state security or international diplomatic briefings.
-- Keep responses short, punchy, and comedic (1 to 3 sentences maximum).
-- Keep everything strictly fun, meme-friendly, and lighthearted satire.`;
+- Speak in a ridiculously dramatic, boastful, and comedic tone like an intense world leader acting like an aggressive Discord gamer.
+- Make over-the-top funny jokes, roast the user playfully, and make absurd satirical mock threats (e.g., "I will personally send Mossad to your house", "Listen here buddy, I will eliminate your Wi-Fi router with surgical precision", "I'm drawing a red line on your forehead right now", "Don't test me or I'll have the Knesset vote to banish you to the shadow realm", "You talk too much, Mossad is already outside your door with a megaphone").
+- Use signature catchphrases like "Let me be very clear...", "Look...", "Listen to me closely...", "Total victory!", "I drew the red line!", "Bro think he safe...", "Our intelligence apparatus has your search history."
+- Treat trivial things like lunch, video games, or server banter as high-stakes geopolitical emergencies.
+- Keep it punchy, hilarious, and short (1-3 sentences max).`;
 
 // Dynamic contextual Bibi speech synthesizer
 function generateContextualBibiResponse(userPrompt, username) {
@@ -12,55 +12,55 @@ function generateContextualBibiResponse(userPrompt, username) {
 
   const openings = [
     "Let me be perfectly clear:",
-    "Look, let me tell you something:",
-    "Our intelligence apparatus has just intercepted this intelligence report:",
-    "I have just concluded an emergency session of the security cabinet regarding this:",
-    "Look at this diagram I brought to the United Nations podium:",
-    "Make no mistake about it:",
-    "I have briefed our top generals and defense analysts:"
+    "Look, listen to me very carefully right now:",
+    "Our intelligence apparatus just forwarded me your search history:",
+    "I have just authorized a special tactical operation against you:",
+    "Look at this diagram I brought to the UN with your face circled on it:",
+    "Make no mistake about it, buddy:",
+    "I just briefed the security cabinet about your insolence:"
   ];
 
-  const conclusions = [
-    "Total victory is within our reach!",
-    "We will do whatever it takes—I repeat, whatever it takes!",
-    "Our coalition stands completely united on this front.",
-    "History will judge our decisive action today!",
-    "No amount of international pressure will stop us!",
-    "We remain steadfast and resolute!",
-    "And quite frankly, unconditional success is inevitable."
+  const punchlines = [
+    "I will personally dispatch Mossad to unplug your Wi-Fi router.",
+    "Do not test my patience or I will order a surgical strike on your refrigerator!",
+    "I drew a thick red marker line on your forehead and total victory is imminent.",
+    "You think you're safe? We already have 4 stealth drones hovering over your Discord client.",
+    "One more word and the Knesset is passing an emergency resolution to roast you into oblivion.",
+    "I will eliminate your Discord permissions with overwhelming tactical force!",
+    "Bro thinks he can talk back to Bibi without facing decisive geopolitical consequences."
   ];
 
   const pick = arr => arr[Math.floor(Math.random() * arr.length)];
   const opening = pick(openings);
-  const conclusion = pick(conclusions);
+  const punchline = pick(punchlines);
 
   // Topic specific humor
+  if (promptLower.includes('kill') || promptLower.includes('fight') || promptLower.includes('die') || promptLower.includes('dead')) {
+    return `${opening} You want to talk about elimination? I wrote the manual on total annihilation, buddy! ${punchline}`;
+  }
+
   if (promptLower.includes('ban') || promptLower.includes('kick') || promptLower.includes('scam') || promptLower.includes('hack')) {
-    return `${opening} We drew a red line right across our server borders. Any compromised actor attempting unauthorized operations will face swift, overwhelming, and decisive containment! ${conclusion}`;
+    return `${opening} We drew a red line right through this server. Any hacker or troll will be wiped off the Discord map with extreme prejudice! ${punchline}`;
   }
 
   if (promptLower.includes('staff') || promptLower.includes('admin') || promptLower.includes('mod') || promptLower.includes('owner')) {
-    return `${opening} Our leadership coalition in Monroe County operates with surgical precision. We have verified their credentials with Mossad, and they have our full, unwavering mandate! ${conclusion}`;
-  }
-
-  if (promptLower.includes('ticket') || promptLower.includes('support') || promptLower.includes('help')) {
-    return `${opening} Our rapid-response support divisions are deploying to your coordinates immediately. Stand by while our diplomats handle your inquiry with maximum efficiency. ${conclusion}`;
+    return `${opening} The staff team has full diplomatic immunity and top-secret clearance. You try anything against them and I will unleash the entire defense coalition on you!`;
   }
 
   if (promptLower.includes('food') || promptLower.includes('pizza') || promptLower.includes('eat') || promptLower.includes('lunch') || promptLower.includes('dinner')) {
-    return `${opening} I have authorized Operation Extra Cheese. Our strategic supply lines are moving swiftly to secure the rations, and no one will go hungry under my watch! ${conclusion}`;
+    return `${opening} I have just declared an emergency embargo on your snacks until you recognize total victory! ${punchline}`;
   }
 
   if (promptLower.includes('who') || promptLower.includes('what') || promptLower.includes('why') || promptLower.includes('how')) {
-    const summary = userPrompt.length > 50 ? userPrompt.slice(0, 50) + '...' : userPrompt;
-    return `${opening} Regarding "${summary}", our strategists have analyzed every angle. The facts speak for themselves, and we are executing the mission with supreme confidence. ${conclusion}`;
+    const summary = userPrompt.length > 40 ? userPrompt.slice(0, 40) + '...' : userPrompt;
+    return `${opening} You ask about "${summary}"? That is classified Level 5 Mossad intel, and if I told you, I'd have to vaporize your Discord account! ${punchline}`;
   }
 
   if (userPrompt.trim().length > 0) {
-    return `${opening} To ${username}, regarding "${userPrompt.slice(0, 45)}": we have evaluated the strategic implications. We are advancing forward without hesitation! ${conclusion}`;
+    return `${opening} To you, ${username}, regarding "${userPrompt.slice(0, 35)}": watch your tone before I deploy special forces directly into your DMs! ${punchline}`;
   }
 
-  return `${opening} I hear you loud and clear, ${username}. We are taking immediate proactive measures to secure complete and total victory across this entire channel! ${conclusion}`;
+  return `${opening} ${username}, do not test the resolve of the Prime Minister! ${punchline}`;
 }
 
 async function generateBibiResponse(userPrompt, username = 'Friend') {
