@@ -242,12 +242,12 @@ function resetShiftStats(guildId, userId = null) {
 async function sendShiftAuditLog(guild, client, embed) {
   try {
     const config = getConfig();
-    const logChannelId = config.logChannelId || process.env.LOG_CHANNEL_ID;
-    if (!logChannelId) return;
+    const targetChannelId = config.shiftLogChannelId || process.env.SHIFT_LOG_CHANNEL_ID || config.logChannelId || process.env.LOG_CHANNEL_ID;
+    if (!targetChannelId) return;
 
     const logChannel =
-      guild.channels.cache.get(logChannelId) ||
-      (await guild.channels.fetch(logChannelId).catch(() => null));
+      guild.channels.cache.get(targetChannelId) ||
+      (await guild.channels.fetch(targetChannelId).catch(() => null));
 
     if (logChannel) {
       await logChannel.send({ embeds: [embed] }).catch(console.error);
