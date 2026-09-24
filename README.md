@@ -52,6 +52,12 @@ The bot now includes a full suite of moderation commands:
 | `/blacklist remove <user>` | Remove a user from the ticket blacklist | Moderate Members / Staff |
 | `/blacklist list` | View all blacklisted users in the server | Moderate Members / Staff |
 | `/unblacklist <user>` | Shortcut to remove a user from the blacklist | Moderate Members / Staff |
+| `/clockin [notes]` | Clock in to start a staff shift and begin activity tracking | Staff Roles / Admins |
+| `/clockout [notes]` | Clock out of your active staff shift and record your activity duration | Staff Roles / Admins |
+| `/shifts active` | List all staff members currently clocked in and on duty | Staff / Members |
+| `/shifts stats [staff]` | View activity hours, total shifts, average shift length & history | Staff / Members |
+| `/shifts leaderboard` | View staff activity leaderboard ranked by total clocked hours | Staff / Members |
+| `/shifts reset [staff]` | Reset shift activity stats for a staff member or the whole server | Administrator |
 | `/staffreview <staff> <rating> <review> [anonymous]` | Submit a star review & feedback for a staff member | @everyone |
 | `/setupcomp [action] [channel_name]` | Deploy Honeypot channel to catch & auto-quarantine compromised accounts | Administrator |
 
