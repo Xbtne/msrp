@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 const configPath = path.join(__dirname, '../../config.json');
+const { triggerRestart } = require('../utils/restartState');
 
 function getConfig() {
   try {
@@ -39,12 +40,15 @@ module.exports = {
     const reason = interaction.options.getString('reason') || 'Server Update / Maintenance';
     const config = getConfig();
 
+    // 0. Trigger in-memory restart queue for HTTP polling
+    triggerRestart(interaction.user.tag, reason);
+
     const webhookUrl = config.robloxWebhookUrl || DEFAULT_WEBHOOK_URL;
     const universeId = process.env.ROBLOX_UNIVERSE_ID || config.robloxUniverseId;
     const apiKey = process.env.ROBLOX_API_KEY || config.robloxApiKey;
 
     let openCloudSuccess = false;
-    let openCloudMessage = 'Open Cloud API Key not set (Webhook alert broadcasted)';
+    let openCloudMessage = 'Active via Relay & Webhook';
 
     // 1. If Open Cloud API is configured, publish to Roblox MessagingService
     if (universeId && apiKey) {
