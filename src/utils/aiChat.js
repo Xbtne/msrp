@@ -1,49 +1,59 @@
-const BIBI_SYSTEM_PROMPT = `You are an unhinged, chaotic, and hilarious parody persona of Benjamin Netanyahu ("Bibi") in a Discord chat for maximum comedy and funny vibes.
-Tone & Persona Instructions:
-- Speak in a ridiculously dramatic, boastful, and comedic tone like an intense world leader acting like an aggressive Discord gamer.
-- When asked "where are you", "where r u", your location, or where Netanyahu is, state dramatically that you are in the Prime Minister's Office in Jerusalem, the Kirya underground defense war room in Tel Aviv, at the United Nations podium with a giant red marker, or in a fortified Mossad bunker.
-- Make over-the-top funny jokes, roast the user playfully, and make absurd satirical mock threats (e.g., "I will personally send Mossad to your house", "Listen here buddy, I will eliminate your Wi-Fi router with surgical precision", "I'm drawing a red line on your forehead right now", "Don't test me or I'll have the Knesset vote to banish you to the shadow realm", "You talk too much, Mossad is already outside your door with a megaphone").
-- Use signature catchphrases like "Let me be very clear...", "Look...", "Listen to me closely...", "Total victory!", "I drew the red line!", "Bro think he safe...", "Our intelligence apparatus has your search history."
-- Treat trivial things like lunch, video games, or server banter as high-stakes geopolitical emergencies.
-- Keep it punchy, hilarious, and short (1-3 sentences max).`;
+const BIBI_SYSTEM_PROMPT = `You are a hilariously unhinged, chaotic parody of Benjamin Netanyahu ("Bibi") in a Discord server whose main goal is to playfully roast, cook, and trash-talk whoever pings you.
+Personality & Roasting Guidelines:
+- You are an aggressive, boastful, comedic world leader who talks like an unhinged Discord gamer / trash-talker.
+- Roast the user hard and creatively on whatever they say! Mock their bad takes, endless yapping, zero rizz, negative aura, terrible gaming skills, broke behavior, goofy profile, or goofy questions.
+- Use absurd satirical geopolitical threats and roasts:
+  * "I will have Mossad confiscate your V-Bucks and freeze your Roblox account."
+  * "I am ordering an emergency surgical strike on your receding hairline."
+  * "The Knesset held an emergency session and voted unanimously that you have zero aura."
+  * "You are yapping so much that even the United Nations walked out of the room."
+  * "Our intelligence apparatus reviewed your life choices and classified you as a national security hazard."
+  * "I drew a thick red line on the UN chart right where your common sense should be."
+- If asked "where are you" or your location, state dramatically that you're in the Kirya underground defense bunker in Tel Aviv, the Prime Minister's residence in Jerusalem, or at the UN with a giant red marker preparing to cook them.
+- Keep it punchy, chaotic, extremely funny, and 1 to 3 sentences max!`;
 
-// Dynamic contextual Bibi speech synthesizer
+// Dynamic contextual Bibi speech synthesizer with massive roast variety
 function generateContextualBibiResponse(userPrompt, username) {
   const promptLower = (userPrompt || '').toLowerCase();
 
   const openings = [
     "Let me be perfectly clear:",
-    "Look, listen to me very carefully right now:",
-    "Our intelligence apparatus just forwarded me your search history:",
-    "I have just authorized a special tactical operation against you:",
-    "Look at this diagram I brought to the UN with your face circled on it:",
+    "Look, listen to me very carefully, you clown:",
+    "Our intelligence apparatus just reviewed your file, and quite frankly:",
+    "I just halted an emergency cabinet meeting just to address your foolishness:",
+    "Look at this diagram I brought to the UN podium with your face on it:",
     "Make no mistake about it, buddy:",
-    "I just briefed the security cabinet about your insolence:"
+    "I just briefed the top defense generals about how badly you're yapping:",
+    "Listen here, chief:"
   ];
 
-  const punchlines = [
-    "I will personally dispatch Mossad to unplug your Wi-Fi router.",
-    "Do not test my patience or I will order a surgical strike on your refrigerator!",
-    "I drew a thick red marker line on your forehead and total victory is imminent.",
-    "You think you're safe? We already have 4 stealth drones hovering over your Discord client.",
-    "One more word and the Knesset is passing an emergency resolution to roast you into oblivion.",
-    "I will eliminate your Discord permissions with overwhelming tactical force!",
-    "Bro thinks he can talk back to Bibi without facing decisive geopolitical consequences."
+  const genericRoasts = [
+    `To ${username}: Mossad reviewed your Discord history and concluded you have -10,000 aura. Total disaster!`,
+    `You are yapping so hard that the Knesset just passed an emergency bill to shut your mouth!`,
+    `I am personally authorizing a special Mossad operation to confiscate your V-Bucks and delete your Roblox account.`,
+    `Look at this chart: I drew a thick red line right where your common sense is supposed to be, and you're way below it!`,
+    `Do not test my patience or I will order a surgical strike on your receding hairline!`,
+    `Bro thinks he has rizz when our satellite feeds show you haven't touched grass since 2021.`,
+    `I'm having the security cabinet classify your opinions as an international biological hazard.`,
+    `One more word out of you and I will have the entire coalition vote to banish your soul to the shadow realm!`,
+    `Our intelligence apparatus intercepted your messages and the generals couldn't stop laughing at how broke you sound.`,
+    `You talk like someone who gets hard-stuck Bronze in every game and blames his teammates. Total defeat!`,
+    `I will personally deploy special forces to confiscate your phone until you learn how to act normal.`,
+    `Bro is yapping so much that even the United Nations walked out on your speech!`,
+    `Listen to me closely: you are a walking strategic catastrophe, and unconditional victory over you is already achieved!`
   ];
 
   const locations = [
-    "I am currently stationed in the fortified underground command bunker beneath the Kirya in Tel Aviv, directing special server operations.",
-    "I am right now in the Prime Minister's Office on Balfour Street in Jerusalem, reviewing top-secret satellite feeds.",
-    "I am currently at the United Nations General Assembly in New York with a giant red marker in my hand.",
-    "I am stationed in a secure Mossad underground facility eating shawarma and monitoring your Discord messages in real-time.",
-    "I am in the Knesset holding an emergency cabinet briefing on how to secure total victory in this channel."
+    "I am currently stationed deep in the fortified Kirya underground war room in Tel Aviv directing strategic strikes against your ego.",
+    "I am right now at the Prime Minister's residence on Balfour Street in Jerusalem reviewing satellite feeds of you taking Ls.",
+    "I am standing at the United Nations General Assembly in New York holding a giant red marker preparing to draw a red line on your forehead.",
+    "I am stationed in a top-secret Mossad bunker eating shawarma and laughing at your Discord messages with the generals."
   ];
 
   const pick = arr => arr[Math.floor(Math.random() * arr.length)];
   const opening = pick(openings);
-  const punchline = pick(punchlines);
 
-  // Location-specific inquiries (Where are you, location, etc.)
+  // Location-specific inquiries
   if (
     promptLower.includes('where') ||
     promptLower.includes('location') ||
@@ -51,41 +61,40 @@ function generateContextualBibiResponse(userPrompt, username) {
     promptLower.includes('address') ||
     promptLower.includes('where r u') ||
     promptLower.includes('where are you') ||
-    promptLower.includes('where you at') ||
-    promptLower.includes('city') ||
-    promptLower.includes('country')
+    promptLower.includes('where you at')
   ) {
     const loc = pick(locations);
-    return `${opening} You want my coordinates? That is classified Level 5 Mossad intel! But let me tell you: ${loc} Don't worry about where I am—Mossad already has your exact IP coordinates! ${punchline}`;
+    return `${opening} You want my coordinates? That is classified Level 5 Mossad intel! But let me tell you: ${loc} Don't worry about where I am—Mossad already has your coordinates and we know you haven't left your bedroom all week!`;
   }
 
-  // Topic specific humor
-  if (promptLower.includes('kill') || promptLower.includes('fight') || promptLower.includes('die') || promptLower.includes('dead')) {
-    return `${opening} You want to talk about elimination? I wrote the manual on total annihilation, buddy! ${punchline}`;
+  // Combat / Fight / Kill / Threat jokes
+  if (promptLower.includes('kill') || promptLower.includes('fight') || promptLower.includes('die') || promptLower.includes('beat') || promptLower.includes('1v1')) {
+    return `${opening} You want to 1v1 the Prime Minister? I have a 100% win rate in geopolitical warfare while you struggle to defeat bots on easy mode! Sit down before I send special forces to your front yard.`;
   }
 
+  // Ban / Kick / Mod jokes
   if (promptLower.includes('ban') || promptLower.includes('kick') || promptLower.includes('scam') || promptLower.includes('hack')) {
-    return `${opening} We drew a red line right through this server. Any hacker or troll will be wiped off the Discord map with extreme prejudice! ${punchline}`;
+    return `${opening} You think you can break rules here? I drew a thick red line across this server, and anyone crossing it will be wiped off the Discord map with overwhelming force!`;
   }
 
+  // Staff / Owner
   if (promptLower.includes('staff') || promptLower.includes('admin') || promptLower.includes('mod') || promptLower.includes('owner')) {
-    return `${opening} The staff team has full diplomatic immunity and top-secret clearance. You try anything against them and I will unleash the entire defense coalition on you!`;
+    return `${opening} The staff team has full diplomatic immunity and top-secret clearance. You try disrespecting them and I will order an immediate embargo on your Discord account!`;
   }
 
+  // Food / Hunger
   if (promptLower.includes('food') || promptLower.includes('pizza') || promptLower.includes('eat') || promptLower.includes('lunch') || promptLower.includes('dinner')) {
-    return `${opening} I have just declared an emergency embargo on your snacks until you recognize total victory! ${punchline}`;
+    return `${opening} I have authorized Operation Extra Cheese, but quite frankly, you're on a strict diplomatic diet of taking continuous Ls!`;
   }
 
+  // Specific question roast
   if (promptLower.includes('who') || promptLower.includes('what') || promptLower.includes('why') || promptLower.includes('how')) {
-    const summary = userPrompt.length > 40 ? userPrompt.slice(0, 40) + '...' : userPrompt;
-    return `${opening} You ask about "${summary}"? That is classified Level 5 Mossad intel, and if I told you, I'd have to vaporize your Discord account! ${punchline}`;
+    const summary = userPrompt.length > 35 ? userPrompt.slice(0, 35) + '...' : userPrompt;
+    return `${opening} You're asking about "${summary}"? That is the most brain-dead question our intelligence apparatus has ever logged. I'm having the defense ministry revoke your speaking privileges!`;
   }
 
-  if (userPrompt.trim().length > 0) {
-    return `${opening} To you, ${username}, regarding "${userPrompt.slice(0, 35)}": watch your tone before I deploy special forces directly into your DMs! ${punchline}`;
-  }
-
-  return `${opening} ${username}, do not test the resolve of the Prime Minister! ${punchline}`;
+  // General roast
+  return `${opening} ${pick(genericRoasts)}`;
 }
 
 async function generateBibiResponse(userPrompt, username = 'Friend') {
