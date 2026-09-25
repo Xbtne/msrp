@@ -59,6 +59,7 @@ The bot now includes a full suite of moderation commands:
 | `/shifts leaderboard` | View staff activity leaderboard ranked by total clocked hours | Staff / Members |
 | `/setup-duty [channel]` | Deploy the live interactive Clocky Duty panel for staff check-ins | Manage Guild / Staff |
 | `/applicationsetup [channel] [review_channel]` | Deploy the MSRC Staff Application panel with 9 DM questions | Manage Guild / Staff |
+| `/welcomer <channel|message|autorole|dm|test|status|toggle>` | Configure member welcome cards, auto-roles & greetings | Manage Guild / Staff |
 | `/staffreview <staff> <rating> <review> [anonymous]` | Submit a star review & feedback for a staff member | @everyone |
 | `/setupcomp [action] [channel_name]` | Deploy Honeypot channel to catch & auto-quarantine compromised accounts | Administrator |
 

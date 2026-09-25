@@ -25,6 +25,12 @@ const {
   createApplicationPanelRow,
   setApplicationReviewChannel
 } = require('./applicationHandler');
+const {
+  getWelcomerData,
+  getGuildWelcomerConfig,
+  setGuildWelcomerConfig,
+  sendTestWelcome
+} = require('./welcomerHandler');
 
 // Parse request body JSON
 function parseRequestBody(req) {
@@ -111,6 +117,7 @@ async function handleDashboardRequest(req, res, client) {
 
     const shiftsData = getShiftsData();
     const appsData = getApplicationsData();
+    const welcomerData = getWelcomerData();
 
     return sendJson(res, 200, {
       success: true,
@@ -118,7 +125,8 @@ async function handleDashboardRequest(req, res, client) {
       bot: { tag: botTag, avatar: botAvatar, ping, uptime },
       guilds,
       shifts: shiftsData,
-      applications: appsData.applications || {}
+      applications: appsData.applications || {},
+      welcomer: welcomerData
     });
   }
 
@@ -324,6 +332,45 @@ async function handleDashboardRequest(req, res, client) {
       } catch (e) {}
 
       return sendJson(res, 200, { success: true, app });
+    } catch (err) {
+      return sendJson(res, 500, { success: false, error: err.message });
+    }
+  }
+
+  // API ROUTE: Welcomer Settings & Test
+  if (pathname === '/api/action/welcomer' && req.method === 'POST') {
+    try {
+      const body = await parseRequestBody(req);
+      const { guildId, action, channelId, enabled, description, autoRoleId, dmEnabled, dmMessage } = body;
+
+      const targetGuildId = guildId || client.guilds.cache.first()?.id;
+      if (!targetGuildId) return sendJson(res, 400, { success: false, error: 'No guild available' });
+
+      if (action === 'test') {
+        const guild = client.guilds.cache.get(targetGuildId);
+        if (!guild) return sendJson(res, 404, { success: false, error: 'Guild not found' });
+
+        const config = getGuildWelcomerConfig(targetGuildId);
+        const chId = channelId || config.channelId;
+        const channel = guild.channels.cache.get(chId) || (await guild.channels.fetch(chId).catch(() => null));
+
+        if (!channel) return sendJson(res, 400, { success: false, error: 'Target welcome channel not found' });
+
+        const member = guild.members.me || guild.members.cache.first();
+        await sendTestWelcome(guild, channel, member);
+        return sendJson(res, 200, { success: true, message: 'Test welcome message sent to #' + channel.name });
+      }
+
+      const updates = {};
+      if (typeof enabled === 'boolean') updates.enabled = enabled;
+      if (channelId) updates.channelId = channelId;
+      if (description) updates.description = description;
+      if (autoRoleId !== undefined) updates.autoRoleId = autoRoleId || null;
+      if (typeof dmEnabled === 'boolean') updates.dmEnabled = dmEnabled;
+      if (dmMessage !== undefined) updates.dmMessage = dmMessage;
+
+      const updatedConfig = setGuildWelcomerConfig(targetGuildId, updates);
+      return sendJson(res, 200, { success: true, config: updatedConfig });
     } catch (err) {
       return sendJson(res, 500, { success: false, error: err.message });
     }
@@ -650,6 +697,9 @@ function renderDashboardHtml(client) {
       <a class="nav-item" onclick="switchTab('applications')">
         <span class="nav-icon">📋</span> Staff Applications
       </a>
+      <a class="nav-item" onclick="switchTab('welcomer')">
+        <span class="nav-icon">👋</span> Welcomer System
+      </a>
       <a class="nav-item" onclick="switchTab('security')">
         <span class="nav-icon">🛡️</span> Security & Anti-Ping
       </a>
@@ -917,6 +967,85 @@ function renderDashboardHtml(client) {
         </div>
       </div>
 
+    <!-- TAB 6: WELCOMER -->
+    <div id="tab-welcomer" class="tab-content">
+      <div class="card">
+        <div class="card-header">
+          <h3>👋 Server Welcomer & Auto-Greeting Configuration</h3>
+        </div>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.25rem;">
+          Automatically greet new server members with a customized embed card, member count milestone, auto-roles, and optional welcome DMs.
+        </p>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Welcome Channel</label>
+            <select id="welcomer-channel-select" class="form-control"></select>
+          </div>
+          <div class="form-group">
+            <label>Welcomer Status</label>
+            <select id="welcomer-enabled-select" class="form-control">
+              <option value="true">🟢 Enabled</option>
+              <option value="false">🔴 Disabled</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Welcome Embed Description (Variables: <code>{user}</code>, <code>{server}</code>, <code>{memberCount}</code>, <code>{accountAge}</code>)</label>
+          <textarea id="welcomer-desc" class="form-control" style="min-height: 110px;" oninput="updateWelcomerPreview()"></textarea>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Auto-Role on Join (Role ID or leave empty for None)</label>
+            <input type="text" id="welcomer-autorole" class="form-control" placeholder="Role ID (e.g. 1544965232625983488)">
+          </div>
+          <div class="form-group">
+            <label>Send Welcome DM to Member?</label>
+            <select id="welcomer-dm-enabled" class="form-control">
+              <option value="false">🔴 Disabled (Channel only)</option>
+              <option value="true">🟢 Enabled (Send DM greeting)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Welcome Direct Message (DM) Text</label>
+          <textarea id="welcomer-dm-text" class="form-control" style="min-height: 70px;" placeholder="Welcome to our server, {user}!"></textarea>
+        </div>
+
+        <label style="font-size: 0.85rem; font-weight: 600; margin-top: 1rem; display: block;">Live Welcome Card Preview</label>
+        <div class="discord-preview" id="welcomer-preview-box">
+          <div class="preview-title" id="welcomer-preview-title">👋 Welcome to Monroe County!</div>
+          <div class="preview-desc" id="welcomer-preview-desc">Welcome @NewMember to Monroe County! You are member #1,250!</div>
+          <div class="preview-footer">Monroe County Community</div>
+        </div>
+
+        <div style="display: flex; gap: 1rem; margin-top: 1.5rem; flex-wrap: wrap;">
+          <button class="btn btn-primary" onclick="saveWelcomerSettings()">💾 Save Welcomer Settings</button>
+          <button class="btn btn-secondary" onclick="testWelcomer()">🧪 Send Test Welcome Message</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 7: SECURITY & ANTI-PING -->
+    <div id="tab-security" class="tab-content">
+      <div class="card">
+        <div class="card-header">
+          <h3>🛡️ Anti-Mass-Ping Scam Interceptor</h3>
+        </div>
+        <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1rem;">
+          Automatically detects unauthorized <code>@everyone</code> or <code>@here</code> blasts outside of announcement categories, deletes the message, purges 7 days of history, and permanently bans compromised accounts.
+        </p>
+        <div style="display: flex; gap: 1rem; align-items: center;">
+          <div class="status-badge" style="padding: 0.5rem 1rem; font-size: 0.85rem;">
+            <div class="status-dot"></div>
+            <span>Anti-Mass Ping Shield: Active</span>
+          </div>
+        </div>
+      </div>
+
       <div class="card">
         <div class="card-header">
           <h3>🍯 Honeypot Trap Security</h3>
@@ -927,7 +1056,7 @@ function renderDashboardHtml(client) {
       </div>
     </div>
 
-    <!-- TAB 7: CHANNEL CONTROLS -->
+    <!-- TAB 8: CHANNEL CONTROLS -->
     <div id="tab-channels" class="tab-content">
       <div class="card">
         <div class="card-header">
@@ -999,6 +1128,7 @@ function renderDashboardHtml(client) {
         panels: ['Deploy System Panels', 'One-click panel deployment for tickets, duty shifts, and applications.'],
         duty: ['Staff Duty & Shifts', 'Track active working staff, break statuses, and duty shift history.'],
         applications: ['Staff Applications Review', 'Review answers and accept/deny staff applicants with 1-click.'],
+        welcomer: ['Welcomer System', 'Configure automated server greetings, welcome channels, and auto-roles.'],
         security: ['Security & Honeypot', 'Anti-mass ping and honeypot security status.'],
         channels: ['Channel Moderation Tools', 'Lock, slowmode, and purge Discord channels remotely.']
       };
@@ -1032,7 +1162,8 @@ function renderDashboardHtml(client) {
         document.getElementById('msg-channel-select'),
         document.getElementById('embed-channel-select'),
         document.getElementById('panel-channel-select'),
-        document.getElementById('mod-channel-select')
+        document.getElementById('mod-channel-select'),
+        document.getElementById('welcomer-channel-select')
       ];
 
       const channels = [];
@@ -1256,6 +1387,61 @@ function renderDashboardHtml(client) {
         if (data.success) {
           showToast(\`✅ Application \${decision.toUpperCase()}ED!\`);
           fetchStatus();
+        } else {
+          showToast('❌ Failed: ' + data.error, true);
+        }
+      } catch (err) {
+        showToast('❌ Error: ' + err.message, true);
+      }
+    }
+
+    function updateWelcomerPreview() {
+      const desc = document.getElementById('welcomer-desc').value || 'Welcome @NewMember to Monroe County! You are member #1,250!';
+      document.getElementById('welcomer-preview-desc').innerText = desc
+        .replace(/{user}/g, '@NewMember')
+        .replace(/{server}/g, 'Monroe County')
+        .replace(/{memberCount}/g, '1,250')
+        .replace(/{accountAge}/g, '3 days ago');
+    }
+
+    async function saveWelcomerSettings() {
+      const channelId = document.getElementById('welcomer-channel-select').value;
+      const enabled = document.getElementById('welcomer-enabled-select').value === 'true';
+      const description = document.getElementById('welcomer-desc').value.trim();
+      const autoRoleId = document.getElementById('welcomer-autorole').value.trim();
+      const dmEnabled = document.getElementById('welcomer-dm-enabled').value === 'true';
+      const dmMessage = document.getElementById('welcomer-dm-text').value.trim();
+
+      try {
+        const res = await fetch('/api/action/welcomer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ channelId, enabled, description, autoRoleId, dmEnabled, dmMessage })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('✅ Welcomer configuration saved successfully!');
+        } else {
+          showToast('❌ Failed: ' + data.error, true);
+        }
+      } catch (err) {
+        showToast('❌ Error: ' + err.message, true);
+      }
+    }
+
+    async function testWelcomer() {
+      const channelId = document.getElementById('welcomer-channel-select').value;
+      if (!channelId) return alert('Please select a welcome channel.');
+
+      try {
+        const res = await fetch('/api/action/welcomer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'test', channelId })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('✅ ' + (data.message || 'Test welcome message sent!'));
         } else {
           showToast('❌ Failed: ' + data.error, true);
         }
