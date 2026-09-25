@@ -407,9 +407,9 @@ async function dispatchApplicationToReviewChannel(client, appRecord) {
     const data = getApplicationsData();
 
     const targetChannelId =
-      data.channels[appRecord.guildId] ||
       config.appLogChannelId ||
       process.env.APP_LOG_CHANNEL_ID ||
+      data.channels[appRecord.guildId] ||
       config.logChannelId ||
       process.env.LOG_CHANNEL_ID;
 

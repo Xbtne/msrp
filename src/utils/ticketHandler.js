@@ -23,6 +23,7 @@ function getConfig() {
   // Allow Railway / Render environment variables to override if present
   if (process.env.LOG_CHANNEL_ID) config.logChannelId = process.env.LOG_CHANNEL_ID;
   if (process.env.SHIFT_LOG_CHANNEL_ID) config.shiftLogChannelId = process.env.SHIFT_LOG_CHANNEL_ID;
+  if (process.env.APP_LOG_CHANNEL_ID) config.appLogChannelId = process.env.APP_LOG_CHANNEL_ID;
   if (process.env.CATEGORY_ID) config.defaultCategoryId = process.env.CATEGORY_ID;
   if (process.env.PING_ROLE_ID) config.pingRoleId = process.env.PING_ROLE_ID;
   if (process.env.REVIEWS_CHANNEL_ID) config.reviewsChannelId = process.env.REVIEWS_CHANNEL_ID;
