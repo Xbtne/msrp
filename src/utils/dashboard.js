@@ -31,6 +31,12 @@ const {
   setGuildWelcomerConfig,
   sendTestWelcome
 } = require('./welcomerHandler');
+const {
+  getDynamicCommands,
+  saveDynamicCommand,
+  deleteDynamicCommand,
+  generateAiAssistantResponse
+} = require('./dynamicCommands');
 
 // Parse request body JSON
 function parseRequestBody(req) {
@@ -312,16 +318,37 @@ async function handleDashboardRequest(req, res, client) {
 
       saveApplicationsData(data);
 
+      // Automatically Grant Accepted Staff Role upon Web Dashboard Acceptance
+      if (isAccept) {
+        try {
+          const targetGuildId = app.guildId || client.guilds.cache.first()?.id;
+          const guild = client.guilds.cache.get(targetGuildId) || (await client.guilds.fetch(targetGuildId).catch(() => null));
+          if (guild) {
+            const member = await guild.members.fetch(app.userId).catch(() => null);
+            const config = getConfig();
+            const staffAcceptedRoleId = config.staffAcceptedRoleId || '1536402083438133297';
+            if (member && staffAcceptedRoleId) {
+              await member.roles.add(staffAcceptedRoleId, `Staff application accepted via Web Dashboard by ${app.reviewedBy}`).catch(err => {
+                console.error(`Failed to assign accepted staff role:`, err.message);
+              });
+            }
+          }
+        } catch (roleErr) {
+          console.error('Error assigning staff role on dashboard accept:', roleErr.message);
+        }
+      }
+
       // DM Applicant
       try {
         const applicantUser = await client.users.fetch(app.userId);
         if (applicantUser) {
+          const config = getConfig();
           const dmEmbed = new EmbedBuilder()
             .setTitle(isAccept ? '🎉 Staff Application Accepted!' : '📬 Staff Application Update')
             .setColor(isAccept ? 0x57F287 : 0xED4245)
             .setDescription(
               isAccept
-                ? `Congratulations! Your staff application for **${app.guildName || 'MSRC'}** has been **ACCEPTED**!\n\n**Reviewer:** ${app.reviewedBy}\n**Notes:**\n${app.reviewReason}\n\nPlease check the server for your onboarding!`
+                ? `Congratulations! Your staff application for **${app.guildName || 'MSRC'}** has been **ACCEPTED**!\n\n**Reviewer:** ${app.reviewedBy}\n**Notes:**\n${app.reviewReason}\n\nYour staff role (<@&${(config.staffAcceptedRoleId || '1536402083438133297')}>) has been granted! Please check the server for your onboarding!`
                 : `Thank you for your interest in joining the **${app.guildName || 'MSRC'}** Staff Team.\n\nAfter review, your application has been **DENIED**.\n\n**Reason:**\n${app.reviewReason}`
             )
             .setFooter({ text: `Application ID: ${appId}` })
@@ -376,6 +403,48 @@ async function handleDashboardRequest(req, res, client) {
     }
   }
 
+  // API ROUTE: AI Assistant / Dev Co-Pilot
+  if (pathname === '/api/ai-assistant' && req.method === 'POST') {
+    try {
+      const body = await parseRequestBody(req);
+      const { prompt, history } = body;
+
+      if (!prompt || !prompt.trim()) {
+        return sendJson(res, 400, { success: false, error: 'Prompt is required' });
+      }
+
+      const result = await generateAiAssistantResponse(prompt, history, client);
+      return sendJson(res, 200, { success: true, ...result });
+    } catch (err) {
+      return sendJson(res, 500, { success: false, error: err.message });
+    }
+  }
+
+  // API ROUTE: Dynamic Custom Commands (GET, POST, DELETE)
+  if (pathname === '/api/dynamic-commands' && req.method === 'GET') {
+    return sendJson(res, 200, { success: true, commands: getDynamicCommands() });
+  }
+
+  if (pathname === '/api/dynamic-commands' && req.method === 'POST') {
+    try {
+      const body = await parseRequestBody(req);
+      const resObj = saveDynamicCommand(body);
+      return sendJson(res, resObj.success ? 200 : 400, resObj);
+    } catch (err) {
+      return sendJson(res, 500, { success: false, error: err.message });
+    }
+  }
+
+  if (pathname === '/api/dynamic-commands' && req.method === 'DELETE') {
+    try {
+      const body = await parseRequestBody(req);
+      const deleted = deleteDynamicCommand(body.name);
+      return sendJson(res, 200, { success: deleted, commands: getDynamicCommands() });
+    } catch (err) {
+      return sendJson(res, 500, { success: false, error: err.message });
+    }
+  }
+
   // API ROUTE: Get Bot Server Configuration
   if (pathname === '/api/config' && req.method === 'GET') {
     try {
@@ -398,6 +467,7 @@ async function handleDashboardRequest(req, res, client) {
       if (body.reviewsChannelId !== undefined) currentConfig.reviewsChannelId = body.reviewsChannelId.trim();
       if (body.bibiChannelId !== undefined) currentConfig.bibiChannelId = body.bibiChannelId.trim();
       if (body.pingRoleId !== undefined) currentConfig.pingRoleId = body.pingRoleId.trim();
+      if (body.staffAcceptedRoleId !== undefined) currentConfig.staffAcceptedRoleId = body.staffAcceptedRoleId.trim();
       if (body.defaultCategoryId !== undefined) currentConfig.defaultCategoryId = body.defaultCategoryId.trim();
       if (body.robloxWebhookUrl !== undefined) currentConfig.robloxWebhookUrl = body.robloxWebhookUrl.trim();
       if (body.robloxUniverseId !== undefined) currentConfig.robloxUniverseId = body.robloxUniverseId.trim();
@@ -730,6 +800,115 @@ function renderDashboardHtml(client) {
       align-items: center;
       gap: 0.6rem;
     }
+
+    /* AI Assistant Interface */
+    .ai-chat-container {
+      display: flex;
+      flex-direction: column;
+      height: 480px;
+      background: #090c13;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin-bottom: 1.5rem;
+    }
+
+    .ai-chat-messages {
+      flex: 1;
+      padding: 1.25rem;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .ai-msg {
+      display: flex;
+      gap: 0.75rem;
+      max-width: 88%;
+      animation: fadeIn 0.2s ease;
+    }
+
+    .ai-msg-user {
+      align-self: flex-end;
+      flex-direction: row-reverse;
+    }
+
+    .ai-msg-avatar {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      border: 1px solid var(--border-active);
+    }
+
+    .ai-msg-bubble {
+      padding: 0.85rem 1.15rem;
+      border-radius: 14px;
+      font-size: 0.92rem;
+      line-height: 1.5;
+      white-space: pre-wrap;
+    }
+
+    .ai-msg-user .ai-msg-bubble {
+      background: var(--primary);
+      color: #fff;
+      border-bottom-right-radius: 3px;
+    }
+
+    .ai-msg-assistant .ai-msg-bubble {
+      background: #141a29;
+      border: 1px solid var(--border);
+      color: #e2e8f0;
+      border-bottom-left-radius: 3px;
+    }
+
+    .ai-action-badge {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: rgba(87, 242, 135, 0.12);
+      border: 1px solid rgba(87, 242, 135, 0.3);
+      color: var(--accent);
+      padding: 0.5rem 0.85rem;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      margin-top: 0.6rem;
+    }
+
+    .ai-prompt-chips {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-bottom: 1rem;
+    }
+
+    .prompt-chip {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 0.4rem 0.8rem;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .prompt-chip:hover {
+      background: rgba(88, 101, 242, 0.15);
+      border-color: #818cf8;
+      color: #fff;
+    }
+
+    .ai-input-bar {
+      display: flex;
+      gap: 0.75rem;
+      padding: 0.9rem 1.25rem;
+      background: #0d111a;
+      border-top: 1px solid var(--border);
+    }
   </style>
 </head>
 <body>
@@ -747,6 +926,9 @@ function renderDashboardHtml(client) {
     <nav class="nav-menu">
       <a class="nav-item active" onclick="switchTab('overview')">
         <span class="nav-icon">📊</span> Overview
+      </a>
+      <a class="nav-item" onclick="switchTab('assistant')">
+        <span class="nav-icon">🤖</span> AI Dev Assistant
       </a>
       <a class="nav-item" onclick="switchTab('messenger')">
         <span class="nav-icon">💬</span> Channel Messenger
@@ -1204,6 +1386,11 @@ function renderDashboardHtml(client) {
             <small style="color: var(--text-muted); font-size: 0.75rem;">Roles with staff management & ticket access.</small>
           </div>
           <div class="form-group">
+            <label>Accepted Staff Role ID (Auto-granted on App Acceptance)</label>
+            <input type="text" id="cfg-staff-accepted-role" class="form-control" placeholder="1536402083438133297">
+            <small style="color: var(--text-muted); font-size: 0.75rem;">Role granted to applicants when accepted.</small>
+          </div>
+          <div class="form-group">
             <label>Ticket Ping Role ID</label>
             <input type="text" id="cfg-ping-role" class="form-control" placeholder="1544965232625983488">
             <small style="color: var(--text-muted); font-size: 0.75rem;">Role pinged when a new ticket is opened.</small>
@@ -1266,6 +1453,71 @@ function renderDashboardHtml(client) {
         </div>
       </div>
     </div>
+
+    <!-- TAB 10: AI ASSISTANT & DYNAMIC COMMAND CREATOR -->
+    <div id="tab-assistant" class="tab-content">
+      <div class="card">
+        <div class="card-header">
+          <h3>🤖 AI Dev Co-Pilot & Remote Bot Assistant</h3>
+          <span class="status-badge"><div class="status-dot"></div> AI Live Engine</span>
+        </div>
+        <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1rem;">
+          Control your Discord bot, add custom dynamic commands (e.g. <code>!rules</code>, <code>!training</code>, <code>!patrol</code>), dispatch rich embeds, or manage server settings remotely from any device.
+        </p>
+
+        <!-- Quick Prompt Chips -->
+        <div class="ai-prompt-chips">
+          <div class="prompt-chip" onclick="quickAiPrompt('Create a !rules command with 5 clear Monroe County roleplay rules in a dark blue embed')">⚡ Create !rules command</div>
+          <div class="prompt-chip" onclick="quickAiPrompt('Add a !training command with cadet academy instructions, voice channel reminders, and 10-codes in a green embed')">🚔 Add !training command</div>
+          <div class="prompt-chip" onclick="quickAiPrompt('Create a !patrol command explaining how officers clock-in and radio procedures')">📋 Add !patrol command</div>
+          <div class="prompt-chip" onclick="quickAiPrompt('Send an announcement into chat welcoming everyone to tonight roleplay session!')">📢 Send Announcement</div>
+          <div class="prompt-chip" onclick="quickAiPrompt('Deploy the Staff Clocky Duty shift panel')">🕛 Deploy Duty Panel</div>
+          <div class="prompt-chip" onclick="quickAiPrompt('Deploy the 9-question Staff Application panel')">📋 Deploy Application Panel</div>
+        </div>
+
+        <!-- Chat Container -->
+        <div class="ai-chat-container">
+          <div class="ai-chat-messages" id="ai-chat-box">
+            <div class="ai-msg ai-msg-assistant">
+              <img src="${botAvatar}" class="ai-msg-avatar" alt="Bot">
+              <div class="ai-msg-bubble">
+                <strong>Hello! I am your AI Dev Assistant & Bot Co-Pilot.</strong><br>
+                I can create custom commands (e.g. <code>!training</code>, <code>!rules</code>, <code>!patrol</code>), deploy interactive panels, dispatch rich embeds, update server settings, and execute moderation tasks remotely for you anytime. What would you like me to do?
+              </div>
+            </div>
+          </div>
+          <div class="ai-input-bar">
+            <input type="text" id="ai-user-prompt" class="form-control" placeholder="Ask AI Assistant to add a command, send an embed, or change settings..." onkeydown="if(event.key==='Enter') sendAiMessage()">
+            <button class="btn btn-primary" id="ai-send-btn" onclick="sendAiMessage()">🚀 Send to AI</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Dynamic Commands Manager -->
+      <div class="card">
+        <div class="card-header">
+          <h3>⚡ Live Dynamic Custom Commands</h3>
+          <button class="btn btn-secondary" onclick="fetchDynamicCommands(true)">🔄 Refresh Commands</button>
+        </div>
+        <p style="font-size: 0.88rem; color: var(--text-muted); margin-bottom: 1.25rem;">
+          All custom commands created by the AI Assistant or via the web dashboard are active immediately on Discord with prefix <code>!</code>.
+        </p>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Trigger</th>
+              <th>Type</th>
+              <th>Description / Title</th>
+              <th>Created By</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="dynamic-commands-tbody">
+            <tr><td colspan="5" style="text-align: center; color: var(--text-muted);">Loading custom commands...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
   </main>
 
   <div id="toast">✅ Action completed successfully!</div>
@@ -1294,6 +1546,7 @@ function renderDashboardHtml(client) {
 
       const titles = {
         overview: ['Dashboard Overview', 'Live performance metrics and server bot operations.'],
+        assistant: ['AI Dev Co-Pilot & Remote Command Engine', 'Chat with your AI Assistant to generate custom commands, dispatch embeds, update server settings, and control the bot remotely.'],
         messenger: ['Channel Messenger & Embed Builder', 'Dispatch text messages and custom embeds directly into Discord.'],
         panels: ['Deploy System Panels', 'One-click panel deployment for tickets, duty shifts, and applications.'],
         duty: ['Staff Duty & Shifts', 'Track active working staff, break statuses, and duty shift history.'],
@@ -1311,6 +1564,167 @@ function renderDashboardHtml(client) {
 
       if (tabName === 'settings') {
         loadSettings();
+      }
+
+      if (tabName === 'assistant') {
+        fetchDynamicCommands();
+      }
+    }
+
+    // AI Assistant Client Logic
+    let aiChatHistory = [];
+
+    async function sendAiMessage(customPrompt = null) {
+      const input = document.getElementById('ai-user-prompt');
+      const prompt = (customPrompt || input.value || '').trim();
+      if (!prompt) return;
+
+      if (!customPrompt) input.value = '';
+
+      const chatBox = document.getElementById('ai-chat-box');
+      const sendBtn = document.getElementById('ai-send-btn');
+      if (sendBtn) {
+        sendBtn.disabled = true;
+        sendBtn.innerText = '⏳ Thinking...';
+      }
+
+      // Append User message bubble
+      const userMsgDiv = document.createElement('div');
+      userMsgDiv.className = 'ai-msg ai-msg-user';
+      userMsgDiv.innerHTML = \`<div class="ai-msg-bubble">\${prompt}</div>\`;
+      chatBox.appendChild(userMsgDiv);
+      chatBox.scrollTop = chatBox.scrollHeight;
+
+      // Temporary Loading bubble
+      const loadingDiv = document.createElement('div');
+      loadingDiv.className = 'ai-msg ai-msg-assistant';
+      loadingDiv.id = 'ai-loading-bubble';
+      loadingDiv.innerHTML = \`
+        <img src="${botAvatar}" class="ai-msg-avatar" alt="Bot">
+        <div class="ai-msg-bubble" style="color: var(--text-muted);">
+          <em>⚡ AI Assistant is processing your request...</em>
+        </div>
+      \`;
+      chatBox.appendChild(loadingDiv);
+      chatBox.scrollTop = chatBox.scrollHeight;
+
+      try {
+        const res = await fetch('/api/ai-assistant', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt, history: aiChatHistory })
+        });
+        const data = await res.json();
+
+        // Remove loading bubble
+        const bubble = document.getElementById('ai-loading-bubble');
+        if (bubble) bubble.remove();
+
+        if (data.success) {
+          aiChatHistory.push({ role: 'user', content: prompt });
+          aiChatHistory.push({ role: 'assistant', content: data.reply });
+
+          const aiMsgDiv = document.createElement('div');
+          aiMsgDiv.className = 'ai-msg ai-msg-assistant';
+
+          let actionHtml = '';
+          if (data.action) {
+            actionHtml = \`<div class="ai-action-badge">✨ Executed: \${data.action.details || data.action.type}</div>\`;
+            showToast('🤖 AI Action: ' + (data.action.details || data.action.type));
+            fetchDynamicCommands();
+            fetchStatus();
+          }
+
+          aiMsgDiv.innerHTML = \`
+            <img src="${botAvatar}" class="ai-msg-avatar" alt="Bot">
+            <div class="ai-msg-bubble">
+              \${data.reply}
+              \${actionHtml}
+            </div>
+          \`;
+          chatBox.appendChild(aiMsgDiv);
+          chatBox.scrollTop = chatBox.scrollHeight;
+        } else {
+          showToast('❌ AI Error: ' + data.error, true);
+        }
+      } catch (err) {
+        const bubble = document.getElementById('ai-loading-bubble');
+        if (bubble) bubble.remove();
+        showToast('❌ AI Connection Error: ' + err.message, true);
+      } finally {
+        if (sendBtn) {
+          sendBtn.disabled = false;
+          sendBtn.innerText = '🚀 Send to AI';
+        }
+      }
+    }
+
+    function quickAiPrompt(text) {
+      document.getElementById('ai-user-prompt').value = text;
+      sendAiMessage(text);
+    }
+
+    // Dynamic Commands Fetcher and Manager
+    async function fetchDynamicCommands(showNotification = false) {
+      try {
+        const res = await fetch('/api/dynamic-commands');
+        const data = await res.json();
+        if (data.success && data.commands) {
+          renderDynamicCommands(data.commands);
+          if (showNotification) showToast('✅ Dynamic commands refreshed!');
+        }
+      } catch (err) {
+        console.error('Error fetching dynamic commands:', err);
+      }
+    }
+
+    function renderDynamicCommands(commands) {
+      const tbody = document.getElementById('dynamic-commands-tbody');
+      if (!tbody) return;
+
+      const keys = Object.keys(commands);
+      if (keys.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">No custom commands created yet. Ask the AI Assistant to create one!</td></tr>';
+        return;
+      }
+
+      const rows = keys.map(k => {
+        const c = commands[k];
+        const isEmbed = c.responseType !== 'text';
+        return \`
+          <tr>
+            <td><strong><code>!\${c.name}</code></strong></td>
+            <td><span class="tag-badge \${isEmbed ? 'tag-working' : 'tag-pending'}">\${isEmbed ? '🖼️ Embed' : '💬 Text'}</span></td>
+            <td>\${c.embedTitle || c.description || (c.content ? c.content.slice(0, 50) : 'Custom Command')}</td>
+            <td><small style="color: var(--text-muted);">\${c.createdBy || 'AI Assistant'}</small></td>
+            <td>
+              <button class="btn btn-danger" style="padding: 0.35rem 0.75rem; font-size: 0.78rem;" onclick="deleteCustomCommand('\${c.name}')">🗑️ Delete</button>
+            </td>
+          </tr>
+        \`;
+      });
+
+      tbody.innerHTML = rows.join('');
+    }
+
+    async function deleteCustomCommand(name) {
+      if (!confirm(\`Are you sure you want to delete custom command !\${name}?\`)) return;
+
+      try {
+        const res = await fetch('/api/dynamic-commands', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(\`🗑️ Command !\${name} deleted.\`);
+          fetchDynamicCommands();
+        } else {
+          showToast('❌ Failed to delete command', true);
+        }
+      } catch (err) {
+        showToast('❌ Error: ' + err.message, true);
       }
     }
 
@@ -1357,7 +1771,6 @@ function renderDashboardHtml(client) {
         const currentVal = select.value;
         select.innerHTML = '';
 
-        // For config selects, add empty option
         if (select.id && select.id.startsWith('cfg-')) {
           const defaultOpt = document.createElement('option');
           defaultOpt.value = '';
@@ -1451,7 +1864,7 @@ function renderDashboardHtml(client) {
         tbodyApps.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted);">No applications submitted yet.</td></tr>';
       }
 
-      // Populate Welcomer Inputs from Live Server Configuration
+      // Populate Welcomer Inputs
       if (data.welcomer) {
         const guildId = data.guilds?.[0]?.id;
         const w = (guildId && data.welcomer[guildId]) || Object.values(data.welcomer)[0];
@@ -1695,6 +2108,7 @@ function renderDashboardHtml(client) {
           if (document.getElementById('cfg-reviews-channel')) document.getElementById('cfg-reviews-channel').value = c.reviewsChannelId || '';
 
           if (document.getElementById('cfg-staff-roles')) document.getElementById('cfg-staff-roles').value = (c.staffRoleIds || []).join(', ');
+          if (document.getElementById('cfg-staff-accepted-role')) document.getElementById('cfg-staff-accepted-role').value = c.staffAcceptedRoleId || '1536402083438133297';
           if (document.getElementById('cfg-ping-role')) document.getElementById('cfg-ping-role').value = c.pingRoleId || '';
           if (document.getElementById('cfg-anti-ping-whitelist')) document.getElementById('cfg-anti-ping-whitelist').value = (c.whitelistedAntiPingIds || []).join(', ');
           if (document.getElementById('cfg-allowed-ping-categories')) document.getElementById('cfg-allowed-ping-categories').value = (c.allowedMassPingCategoryIds || []).join(', ');
@@ -1727,6 +2141,7 @@ function renderDashboardHtml(client) {
           defaultCategoryId: document.getElementById('cfg-default-category')?.value || '',
           reviewsChannelId: document.getElementById('cfg-reviews-channel')?.value || '',
           staffRoleIds: document.getElementById('cfg-staff-roles')?.value || '',
+          staffAcceptedRoleId: document.getElementById('cfg-staff-accepted-role')?.value || '1536402083438133297',
           pingRoleId: document.getElementById('cfg-ping-role')?.value || '',
           whitelistedAntiPingIds: document.getElementById('cfg-anti-ping-whitelist')?.value || '',
           allowedMassPingCategoryIds: document.getElementById('cfg-allowed-ping-categories')?.value || '',
@@ -1760,6 +2175,7 @@ function renderDashboardHtml(client) {
     // Initial Load & Auto-Refresh
     fetchStatus();
     loadSettings();
+    fetchDynamicCommands();
     setInterval(fetchStatus, 6000);
   </script>
 </body>

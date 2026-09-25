@@ -586,6 +586,25 @@ async function handleStaffReviewInteraction(interaction) {
       }
     }
 
+    // Automatically grant Accepted Staff Role upon Acceptance
+    if (isAccept) {
+      try {
+        const guild = interaction.guild || (await interaction.client.guilds.fetch(app.guildId).catch(() => null));
+        if (guild) {
+          const member = await guild.members.fetch(app.userId).catch(() => null);
+          const config = getConfig();
+          const roleId = config.staffAcceptedRoleId || '1536402083438133297';
+          if (member && roleId) {
+            await member.roles.add(roleId, `Staff application accepted by ${interaction.user.tag}`).catch(err => {
+              console.error(`Failed to assign role ${roleId} to ${app.userId}:`, err.message);
+            });
+          }
+        }
+      } catch (roleErr) {
+        console.error('Error assigning staff role upon acceptance:', roleErr.message);
+      }
+    }
+
     await interaction.reply({
       content: `✅ Successfully **${isAccept ? 'ACCEPTED' : 'DENIED'}** application \`${appId}\`. A DM notification has been sent to the applicant.`,
       ephemeral: true
@@ -603,7 +622,7 @@ async function handleStaffReviewInteraction(interaction) {
               ? `Congratulations! Your staff application for **${interaction.guild.name}** has been **ACCEPTED**!\n\n` +
                 `**Reviewer:** <@${interaction.user.id}>\n` +
                 `**Notes:**\n${reason}\n\n` +
-                `Please check the server for your new roles and announcements.`
+                `Your staff role (<@&${(getConfig().staffAcceptedRoleId || '1536402083438133297')}>) has been granted! Please check the server for your onboarding!`
               : `Thank you for your interest in joining the **${interaction.guild.name}** Staff Team.\n\n` +
                 `After careful review, your application has been **DENIED**.\n\n` +
                 `**Reason:**\n${reason}\n\n` +

@@ -16,6 +16,7 @@ function getSecurityData() {
 }
 
 const { handleApplicationDmMessage } = require('../utils/applicationHandler');
+const { executeDynamicCommand } = require('../utils/dynamicCommands');
 
 module.exports = {
   name: 'messageCreate',
@@ -27,6 +28,12 @@ module.exports = {
     }
 
     if (message.author.bot) return;
+
+    // ==========================================
+    // 0.5. DYNAMIC & AI-CREATED CUSTOM COMMANDS (e.g. !rules, !training, !patrol)
+    // ==========================================
+    const isDynamicCmd = await executeDynamicCommand(message);
+    if (isDynamicCmd) return;
 
     const botConfig = getConfig();
 

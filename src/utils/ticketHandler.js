@@ -34,8 +34,11 @@ function getConfig() {
   if (process.env.ALLOWED_PING_CATEGORY_IDS) {
     config.allowedMassPingCategoryIds = process.env.ALLOWED_PING_CATEGORY_IDS.split(',').map(id => id.trim());
   }
-  if (process.env.WHITELISTED_PING_IDS) {
-    config.whitelistedAntiPingIds = process.env.WHITELISTED_PING_IDS.split(',').map(id => id.trim());
+  if (process.env.STAFF_ACCEPTED_ROLE_ID) {
+    config.staffAcceptedRoleId = process.env.STAFF_ACCEPTED_ROLE_ID;
+  }
+  if (!config.staffAcceptedRoleId) {
+    config.staffAcceptedRoleId = '1536402083438133297';
   }
 
   return config;
