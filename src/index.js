@@ -30,16 +30,17 @@ http.createServer((req, res) => {
   console.log(`🌐 Web Dashboard listening on port ${port}`);
 });
 
-// Auto keep-alive ping to prevent Render free tier from sleeping
+// Auto keep-alive ping to prevent Render / hosting platform from sleeping (24/7 active)
 const externalUrl = process.env.RENDER_EXTERNAL_URL || process.env.PUBLIC_URL;
-if (externalUrl) {
-  console.log(`📡 Auto keep-alive enabled for URL: ${externalUrl}`);
-  setInterval(async () => {
-    try {
-      await fetch(externalUrl);
-    } catch (e) {}
-  }, 8 * 60 * 1000); // Ping every 8 minutes
-}
+setInterval(async () => {
+  try {
+    if (externalUrl) {
+      await fetch(externalUrl).catch(() => null);
+    }
+    // Ping local server
+    await fetch(`http://127.0.0.1:${port}/api/status`).catch(() => null);
+  } catch (e) {}
+}, 3.5 * 60 * 1000); // Ping every 3.5 minutes
 
 const client = new Client({
   intents: [
@@ -52,10 +53,11 @@ const client = new Client({
   partials: [
     Partials.Channel,
     Partials.Message,
-    Partials.User
+    Partials.User,
+    Partials.GuildMember
   ],
   presence: {
-    activities: [{ name: 'Monroe County', type: ActivityType.Watching }],
+    activities: [{ name: 'Monroe County • 24/7', type: ActivityType.Watching }],
     status: 'online'
   }
 });
@@ -63,6 +65,13 @@ const client = new Client({
 // Explicitly set tokens to prevent unauthenticated REST requests
 client.rest.setToken(token);
 client.token = token;
+
+// 24/7 Shard and Gateway lifecycle resilience
+client.on('error', err => console.error('⚠️ [Client Error]:', err.message));
+client.on('shardError', (err, shardId) => console.error(`⚠️ [Shard ${shardId} Error]:`, err.message));
+client.on('shardDisconnect', (event, shardId) => console.warn(`⚠️ [Shard ${shardId} Disconnected]:`, event?.reason || event));
+client.on('shardReconnecting', shardId => console.log(`🔄 [Shard ${shardId} Reconnecting...]`));
+client.on('shardResume', (shardId, replayedEvents) => console.log(`✅ [Shard ${shardId} Resumed] (${replayedEvents} events replayed)`));
 
 // Process-level error protection
 process.on('unhandledRejection', error => {

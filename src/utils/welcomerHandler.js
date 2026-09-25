@@ -1,4 +1,4 @@
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, PermissionFlagsBits, ChannelType } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
 const { getConfig } = require('./ticketHandler');
@@ -43,7 +43,6 @@ function getGuildWelcomerConfig(guildId) {
   const data = getWelcomerData();
   const botConfig = getConfig();
 
-  // If not configured in welcomer.json, check config.json or environment
   const guildConfig = data[guildId] || {};
   return {
     ...DEFAULT_CONFIG,
@@ -70,17 +69,18 @@ function formatWelcomeText(text, member) {
   const guild = member.guild;
   const user = member.user;
 
-  const createdUnix = Math.floor(user.createdTimestamp / 1000);
+  const createdUnix = user?.createdTimestamp ? Math.floor(user.createdTimestamp / 1000) : Math.floor(Date.now() / 1000);
   const joinedUnix = member.joinedTimestamp ? Math.floor(member.joinedTimestamp / 1000) : Math.floor(Date.now() / 1000);
+  const memberCount = guild.memberCount || 1;
 
   return text
     .replace(/{user}/g, `<@${user.id}>`)
-    .replace(/{username}/g, user.username)
-    .replace(/{user_tag}/g, user.tag || user.username)
+    .replace(/{username}/g, user.username || 'Member')
+    .replace(/{user_tag}/g, user.tag || user.username || 'Member')
     .replace(/{userId}/g, user.id)
     .replace(/{server}/g, guild.name)
     .replace(/{guild}/g, guild.name)
-    .replace(/{memberCount}/g, (guild.memberCount || 1).toString())
+    .replace(/{memberCount}/g, memberCount.toLocaleString())
     .replace(/{accountAge}/g, `<t:${createdUnix}:R>`)
     .replace(/{joinDate}/g, `<t:${joinedUnix}:f>`);
 }
@@ -99,7 +99,7 @@ function createWelcomeEmbed(config, member) {
     .setColor(parseInt((config.color || '#5865F2').replace('#', ''), 16) || 0x5865F2)
     .setTimestamp();
 
-  if (config.showAvatar !== false) {
+  if (config.showAvatar !== false && member.user?.displayAvatarURL) {
     embed.setThumbnail(member.user.displayAvatarURL({ dynamic: true, size: 256 }));
   }
 
@@ -114,59 +114,150 @@ function createWelcomeEmbed(config, member) {
 }
 
 /**
- * Handles incoming new member join event
+ * Resolves the best available welcome channel for a guild with 24/7 auto-discovery
  */
-async function handleMemberJoin(member) {
-  if (member.user.bot) return;
-
-  const config = getGuildWelcomerConfig(member.guild.id);
-  if (!config.enabled) return;
-
-  // 1. Auto-Role Assignment
-  if (config.autoRoleId) {
-    try {
-      const role = member.guild.roles.cache.get(config.autoRoleId);
-      if (role && member.guild.members.me.permissions.has('ManageRoles') && role.position < member.guild.members.me.roles.highest.position) {
-        await member.roles.add(role, 'Auto-Role on Join');
+async function resolveWelcomeChannel(guild, configuredChannelId = null) {
+  // 1. Try explicitly configured channel ID
+  if (configuredChannelId) {
+    const ch = guild.channels.cache.get(configuredChannelId) || (await guild.channels.fetch(configuredChannelId).catch(() => null));
+    if (ch && ch.type === ChannelType.GuildText) {
+      const me = guild.members.me || (await guild.members.fetchMe().catch(() => null));
+      if (!me || ch.permissionsFor(me)?.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages])) {
+        return ch;
       }
-    } catch (roleErr) {
-      console.warn('Failed to assign auto-role on join:', roleErr.message);
     }
   }
 
-  // 2. Channel Welcome Embed
-  if (config.channelId) {
-    try {
-      const channel =
-        member.guild.channels.cache.get(config.channelId) ||
-        (await member.guild.channels.fetch(config.channelId).catch(() => null));
+  // 2. Try searching by common welcome channel names
+  const welcomeNames = ['welcome', 'welcomes', 'welcome-chat', 'joins', 'arrivals', 'general', 'main-chat', 'chat', 'lounge'];
+  for (const name of welcomeNames) {
+    const found = guild.channels.cache.find(c =>
+      c.type === ChannelType.GuildText &&
+      c.name.toLowerCase().includes(name)
+    );
+    if (found) {
+      const me = guild.members.me || (await guild.members.fetchMe().catch(() => null));
+      if (!me || found.permissionsFor(me)?.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages])) {
+        return found;
+      }
+    }
+  }
 
-      if (channel) {
+  // 3. Try guild system channel
+  if (guild.systemChannelId) {
+    const sysCh = guild.channels.cache.get(guild.systemChannelId) || (await guild.channels.fetch(guild.systemChannelId).catch(() => null));
+    if (sysCh && sysCh.type === ChannelType.GuildText) {
+      return sysCh;
+    }
+  }
+
+  // 4. Fallback: First text channel where the bot has SendMessages permission
+  const fallback = guild.channels.cache.find(c => {
+    if (c.type !== ChannelType.GuildText) return false;
+    const me = guild.members.me;
+    return !me || c.permissionsFor(me)?.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages]);
+  });
+
+  return fallback || null;
+}
+
+/**
+ * Handles incoming new member join event with 24/7 resilience
+ */
+async function handleMemberJoin(member) {
+  if (!member || !member.guild) return;
+  if (member.user && member.user.bot) return;
+
+  // Ensure full member object is loaded
+  if (member.partial) {
+    try {
+      member = await member.fetch();
+    } catch (e) {
+      console.warn('Could not fetch full member object:', e.message);
+    }
+  }
+
+  const guild = member.guild;
+  const config = getGuildWelcomerConfig(guild.id);
+  if (!config.enabled) return;
+
+  console.log(`👋 [Welcomer] New member joined ${guild.name}: ${member.user?.tag || member.id} (Member #${guild.memberCount})`);
+
+  // 1. Bulletproof Auto-Role Assignment
+  if (config.autoRoleId) {
+    try {
+      const me = guild.members.me || (await guild.members.fetchMe().catch(() => null));
+      const role = guild.roles.cache.get(config.autoRoleId) || (await guild.roles.fetch(config.autoRoleId).catch(() => null));
+
+      if (role && me) {
+        const botCanManage = me.permissions.has(PermissionFlagsBits.ManageRoles);
+        const botRoleHigher = me.roles.highest.position > role.position;
+
+        if (botCanManage && botRoleHigher) {
+          await member.roles.add(role, 'Auto-Role on Join (24/7 Welcomer)').catch(err => {
+            console.warn(`⚠️ Failed to add auto-role ${role.name}:`, err.message);
+          });
+          console.log(`✅ [Welcomer] Auto-role @${role.name} assigned to ${member.user?.tag}`);
+        } else {
+          console.warn(`⚠️ [Welcomer] Cannot assign auto-role: Bot lacks ManageRoles or role is higher than bot's highest role.`);
+        }
+      }
+    } catch (roleErr) {
+      console.warn('⚠️ [Welcomer] Error during auto-role assignment:', roleErr.message);
+    }
+  }
+
+  // 2. Robust Channel Welcome Message Dispatch
+  try {
+    const welcomeChannel = await resolveWelcomeChannel(guild, config.channelId);
+
+    if (welcomeChannel) {
+      const me = guild.members.me || (await guild.members.fetchMe().catch(() => null));
+      const canEmbed = !me || welcomeChannel.permissionsFor(me)?.has(PermissionFlagsBits.EmbedLinks);
+
+      if (canEmbed) {
         const welcomeEmbed = createWelcomeEmbed(config, member);
-        await channel.send({
-          content: `👋 Hey <@${member.id}>, welcome to **${member.guild.name}**!`,
+        await welcomeChannel.send({
+          content: `👋 Hey <@${member.id}>, welcome to **${guild.name}**!`,
           embeds: [welcomeEmbed]
         });
+      } else {
+        // Text-only fallback if EmbedLinks is disabled in that channel
+        const descText = formatWelcomeText(config.description || DEFAULT_CONFIG.description, member);
+        await welcomeChannel.send({
+          content: `👋 Hey <@${member.id}>, welcome to **${guild.name}**!\n\n${descText}`
+        });
       }
-    } catch (chErr) {
-      console.error('Failed to send welcome message to channel:', chErr);
+
+      // Auto-save the resolved channel if not configured yet
+      if (!config.channelId) {
+        setGuildWelcomerConfig(guild.id, { channelId: welcomeChannel.id });
+      }
+
+      console.log(`✅ [Welcomer] Welcome message sent to #${welcomeChannel.name}`);
+    } else {
+      console.warn(`⚠️ [Welcomer] No suitable welcome channel found in ${guild.name}.`);
     }
+  } catch (chErr) {
+    console.error('❌ [Welcomer] Failed to send welcome message to channel:', chErr.message);
   }
 
   // 3. Optional DM Welcome Message
-  if (config.dmEnabled && config.dmMessage) {
+  if (config.dmEnabled && config.dmMessage && member.user) {
     try {
       const dmText = formatWelcomeText(config.dmMessage, member);
       const dmEmbed = new EmbedBuilder()
-        .setTitle(`👋 Welcome to ${member.guild.name}!`)
+        .setTitle(`👋 Welcome to ${guild.name}!`)
         .setDescription(dmText)
         .setColor(parseInt((config.color || '#5865F2').replace('#', ''), 16) || 0x5865F2)
-        .setThumbnail(member.guild.iconURL({ dynamic: true }) || undefined)
+        .setThumbnail(guild.iconURL({ dynamic: true }) || undefined)
         .setTimestamp();
 
       await member.send({ embeds: [dmEmbed] });
+      console.log(`📬 [Welcomer] Welcome DM dispatched to ${member.user.tag}`);
     } catch (dmErr) {
-      console.log(`Could not DM welcome message to ${member.user.tag} (DMs closed)`);
+      // DMs closed or member blocks bot - standard discord behavior
+      console.log(`ℹ️ [Welcomer] Could not DM welcome message to ${member.user.tag} (DMs closed or blocked)`);
     }
   }
 }
@@ -191,6 +282,8 @@ module.exports = {
   setGuildWelcomerConfig,
   formatWelcomeText,
   createWelcomeEmbed,
+  resolveWelcomeChannel,
   handleMemberJoin,
   sendTestWelcome
 };
+
