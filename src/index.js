@@ -2,6 +2,7 @@ require('dotenv').config();
 const {
   Client,
   GatewayIntentBits,
+  Partials,
   Collection,
   REST,
   Routes,
@@ -46,7 +47,13 @@ const client = new Client({
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.GuildMembers,
-    GatewayIntentBits.MessageContent
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.DirectMessages
+  ],
+  partials: [
+    Partials.Channel,
+    Partials.Message,
+    Partials.User
   ],
   presence: {
     activities: [{ name: 'Monroe County', type: ActivityType.Watching }],

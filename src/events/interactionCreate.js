@@ -8,6 +8,11 @@ const {
   handleTicketTranscript
 } = require('../utils/ticketHandler');
 const { handleClockButton } = require('../utils/shiftHandler');
+const {
+  handleApplyButtonClick,
+  handleApplicationDmInteraction,
+  handleStaffReviewInteraction
+} = require('../utils/applicationHandler');
 
 module.exports = {
   name: 'interactionCreate',
@@ -53,6 +58,17 @@ module.exports = {
           return await handleClockButton(interaction);
         }
 
+        // Handle Staff Application buttons
+        if (customId === 'app_server_apply') {
+          return await handleApplyButtonClick(interaction);
+        }
+        if (customId.startsWith('app_dm_')) {
+          return await handleApplicationDmInteraction(interaction);
+        }
+        if (customId.startsWith('app_staff_')) {
+          return await handleStaffReviewInteraction(interaction);
+        }
+
         // Handle Ticket Controls
         switch (customId) {
           case 'ticket_claim':
@@ -75,6 +91,14 @@ module.exports = {
 
           default:
             break;
+        }
+      }
+
+      // 3. Handle Modal Submissions
+      if (interaction.isModalSubmit()) {
+        const customId = interaction.customId;
+        if (customId.startsWith('app_modal_')) {
+          return await handleStaffReviewInteraction(interaction);
         }
       }
     } catch (err) {

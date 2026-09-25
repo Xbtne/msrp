@@ -15,10 +15,18 @@ function getSecurityData() {
   }
 }
 
+const { handleApplicationDmMessage } = require('../utils/applicationHandler');
+
 module.exports = {
   name: 'messageCreate',
   async execute(message, client) {
-    if (!message.guild || message.author.bot) return;
+    // 0. Handle Direct Messages (Staff Application Flow)
+    if (!message.guild) {
+      if (message.author.bot) return;
+      return await handleApplicationDmMessage(message, client);
+    }
+
+    if (message.author.bot) return;
 
     const botConfig = getConfig();
 
