@@ -20,13 +20,12 @@ if (!token) {
   process.exit(1);
 }
 
-const { renderDashboard } = require('./utils/dashboard');
+const { handleDashboardRequest } = require('./utils/dashboard');
 
 // Web Dashboard & HTTP health check server for Render
 const port = process.env.PORT || 3000;
 http.createServer((req, res) => {
-  res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-  res.end(renderDashboard(client));
+  handleDashboardRequest(req, res, client);
 }).listen(port, () => {
   console.log(`🌐 Web Dashboard listening on port ${port}`);
 });
