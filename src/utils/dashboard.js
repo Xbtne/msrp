@@ -445,6 +445,111 @@ async function handleDashboardRequest(req, res, client) {
     }
   }
 
+  // API ROUTE: Consolidated Server & Staff Leaderboards
+  if (pathname === '/api/leaderboards' && req.method === 'GET') {
+    try {
+      const shiftsData = getShiftsData();
+      const appsData = getApplicationsData();
+
+      // Aggregate Shift Totals across all guilds
+      const userShiftMap = {};
+      let totalServerMs = 0;
+      let totalServerShifts = 0;
+
+      for (const [guildId, gData] of Object.entries(shiftsData)) {
+        if (gData && gData.totals) {
+          for (const [userId, stats] of Object.entries(gData.totals)) {
+            if (!userShiftMap[userId]) {
+              userShiftMap[userId] = {
+                userId,
+                userTag: stats.userTag || 'Staff Member',
+                totalMs: 0,
+                totalShifts: 0,
+                lastShiftEnd: 0
+              };
+            }
+            userShiftMap[userId].totalMs += stats.totalMs || 0;
+            userShiftMap[userId].totalShifts += stats.totalShifts || 0;
+            if ((stats.lastShiftEnd || 0) > userShiftMap[userId].lastShiftEnd) {
+              userShiftMap[userId].lastShiftEnd = stats.lastShiftEnd;
+            }
+            if (stats.userTag && stats.userTag !== 'Staff Member') {
+              userShiftMap[userId].userTag = stats.userTag;
+            }
+            totalServerMs += stats.totalMs || 0;
+            totalServerShifts += stats.totalShifts || 0;
+          }
+        }
+      }
+
+      const shiftsLeaderboard = Object.values(userShiftMap)
+        .map(u => ({
+          ...u,
+          formattedTotal: formatDuration(u.totalMs),
+          avgShiftMs: u.totalShifts > 0 ? Math.round(u.totalMs / u.totalShifts) : 0,
+          formattedAvg: u.totalShifts > 0 ? formatDuration(Math.round(u.totalMs / u.totalShifts)) : '0 secs'
+        }))
+        .sort((a, b) => b.totalMs - a.totalMs);
+
+      // Aggregate Application Reviews
+      const reviewerMap = {};
+      const applications = Object.values(appsData.applications || {});
+      let totalAccepted = 0;
+      let totalDenied = 0;
+      let totalPending = 0;
+
+      for (const app of applications) {
+        if (app.status === 'ACCEPTED') totalAccepted++;
+        else if (app.status === 'DENIED') totalDenied++;
+        else totalPending++;
+
+        if (app.reviewedBy || app.reviewedById) {
+          const key = app.reviewedById || app.reviewedBy;
+          if (!reviewerMap[key]) {
+            reviewerMap[key] = {
+              reviewerId: app.reviewedById || '',
+              reviewerTag: app.reviewedBy || 'Staff Reviewer',
+              totalReviewed: 0,
+              accepted: 0,
+              denied: 0
+            };
+          }
+          reviewerMap[key].totalReviewed++;
+          if (app.status === 'ACCEPTED') reviewerMap[key].accepted++;
+          if (app.status === 'DENIED') reviewerMap[key].denied++;
+        }
+      }
+
+      const reviewsLeaderboard = Object.values(reviewerMap)
+        .map(r => ({
+          ...r,
+          acceptanceRate: r.totalReviewed > 0 ? Math.round((r.accepted / r.totalReviewed) * 100) : 0
+        }))
+        .sort((a, b) => b.totalReviewed - a.totalReviewed);
+
+      return sendJson(res, 200, {
+        success: true,
+        summary: {
+          totalStaffTracked: shiftsLeaderboard.length,
+          totalServerMs,
+          formattedServerMs: formatDuration(totalServerMs),
+          totalServerShifts,
+          topStaff: shiftsLeaderboard[0] || null,
+          totalApplications: applications.length,
+          totalAccepted,
+          totalDenied,
+          totalPending,
+          topReviewer: reviewsLeaderboard[0] || null
+        },
+        shiftsLeaderboard,
+        reviewsLeaderboard,
+        recentApplications: applications.slice(-10).reverse()
+      });
+    } catch (err) {
+      return sendJson(res, 500, { success: false, error: err.message });
+    }
+  }
+
   // API ROUTE: Get Bot Server Configuration
   if (pathname === '/api/config' && req.method === 'GET') {
     try {
@@ -909,6 +1014,23 @@ function renderDashboardHtml(client) {
       background: #0d111a;
       border-top: 1px solid var(--border);
     }
+
+    /* Leaderboard Badges & Styling */
+    .rank-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 32px;
+      height: 32px;
+      padding: 0 0.5rem;
+      border-radius: 8px;
+      font-weight: 800;
+      font-size: 0.85rem;
+    }
+    .rank-1 { background: linear-gradient(135deg, #ffd700 0%, #ffae00 100%); color: #000; box-shadow: 0 0 12px rgba(255, 215, 0, 0.45); }
+    .rank-2 { background: linear-gradient(135deg, #f1f5f9 0%, #94a3b8 100%); color: #000; box-shadow: 0 0 10px rgba(148, 163, 184, 0.35); }
+    .rank-3 { background: linear-gradient(135deg, #d97706 0%, #78350f 100%); color: #fff; box-shadow: 0 0 10px rgba(217, 119, 6, 0.35); }
+    .rank-other { background: rgba(255, 255, 255, 0.06); color: var(--text-muted); border: 1px solid var(--border); }
   </style>
 </head>
 <body>
@@ -926,6 +1048,9 @@ function renderDashboardHtml(client) {
     <nav class="nav-menu">
       <a class="nav-item active" onclick="switchTab('overview')">
         <span class="nav-icon">📊</span> Overview
+      </a>
+      <a class="nav-item" onclick="switchTab('leaderboards')">
+        <span class="nav-icon">🏆</span> Leaderboards
       </a>
       <a class="nav-item" onclick="switchTab('assistant')">
         <span class="nav-icon">🤖</span> AI Dev Assistant
@@ -1039,6 +1164,118 @@ function renderDashboardHtml(client) {
           </thead>
           <tbody id="overview-duty-tbody">
             <tr><td colspan="4" style="text-align: center; color: var(--text-muted);">No staff currently on duty.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TAB: LEADERBOARDS -->
+    <div id="tab-leaderboards" class="tab-content">
+      <!-- Leaderboard Summary Cards -->
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-top">
+            <span class="stat-label">👑 Top Staff Member</span>
+            <span class="stat-icon">🥇</span>
+          </div>
+          <div class="stat-num" id="lb-top-staff" style="font-size: 1.25rem; line-height: 1.8rem; color: #ffd700;">--</div>
+          <small id="lb-top-staff-sub" style="color: var(--text-muted); font-size: 0.8rem;">0 hrs · 0 shifts</small>
+        </div>
+        <div class="stat-card">
+          <div class="stat-top">
+            <span class="stat-label">⏱️ Total Server Duty Time</span>
+            <span class="stat-icon">🕒</span>
+          </div>
+          <div class="stat-num" id="lb-total-time" style="font-size: 1.25rem; line-height: 1.8rem; color: var(--accent);">0 hrs</div>
+          <small id="lb-total-shifts-sub" style="color: var(--text-muted); font-size: 0.8rem;">Across all staff shifts</small>
+        </div>
+        <div class="stat-card">
+          <div class="stat-top">
+            <span class="stat-label">📊 Total Shifts Completed</span>
+            <span class="stat-icon">📈</span>
+          </div>
+          <div class="stat-num" id="lb-total-shifts" style="color: #818cf8;">0</div>
+          <small id="lb-total-staff-sub" style="color: var(--text-muted); font-size: 0.8rem;">0 active staff tracked</small>
+        </div>
+        <div class="stat-card">
+          <div class="stat-top">
+            <span class="stat-label">📋 Top Application Reviewer</span>
+            <span class="stat-icon">📝</span>
+          </div>
+          <div class="stat-num" id="lb-top-reviewer" style="font-size: 1.25rem; line-height: 1.8rem; color: #57F287;">--</div>
+          <small id="lb-top-reviewer-sub" style="color: var(--text-muted); font-size: 0.8rem;">0 applications processed</small>
+        </div>
+      </div>
+
+      <!-- Staff Duty Hours Leaderboard -->
+      <div class="card">
+        <div class="card-header">
+          <h3>🏆 Staff Duty & Shift Hours Leaderboard</h3>
+          <button class="btn btn-secondary btn-sm" onclick="fetchLeaderboards(true)">🔄 Refresh Rankings</button>
+        </div>
+        <p style="font-size: 0.88rem; color: var(--text-muted); margin-bottom: 1.25rem;">
+          Rankings of all staff members ordered by cumulative duty and patrol hours logged through Clocky Duty.
+        </p>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="width: 70px;">Rank</th>
+              <th>Staff Member</th>
+              <th>Total Shift Time</th>
+              <th>Completed Shifts</th>
+              <th>Average Shift</th>
+              <th>Last Active</th>
+            </tr>
+          </thead>
+          <tbody id="lb-shifts-tbody">
+            <tr><td colspan="6" style="text-align: center; color: var(--text-muted);">Loading shift leaderboard...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Staff Application Reviewers Leaderboard -->
+      <div class="card">
+        <div class="card-header">
+          <h3>📋 Staff Application Reviewers Leaderboard</h3>
+        </div>
+        <p style="font-size: 0.88rem; color: var(--text-muted); margin-bottom: 1.25rem;">
+          Staff members ranked by total application submissions reviewed, acceptance counts, and decision rates.
+        </p>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="width: 70px;">Rank</th>
+              <th>Reviewer / Staff</th>
+              <th>Applications Reviewed</th>
+              <th>Accepted (🟢)</th>
+              <th>Denied (🔴)</th>
+              <th>Acceptance Rate</th>
+            </tr>
+          </thead>
+          <tbody id="lb-reviews-tbody">
+            <tr><td colspan="6" style="text-align: center; color: var(--text-muted);">Loading reviewer leaderboard...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Recent Application Submissions -->
+      <div class="card">
+        <div class="card-header">
+          <h3>👥 Recent Staff Applications Activity</h3>
+          <button class="btn btn-secondary" onclick="switchTab('applications')">📋 Go to Application Reviews</button>
+        </div>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Applicant</th>
+              <th>Submitted Date</th>
+              <th>Status</th>
+              <th>Reviewed By</th>
+              <th>Review Notes</th>
+            </tr>
+          </thead>
+          <tbody id="lb-recent-apps-tbody">
+            <tr><td colspan="5" style="text-align: center; color: var(--text-muted);">Loading recent applicant records...</td></tr>
           </tbody>
         </table>
       </div>
@@ -1546,6 +1783,7 @@ function renderDashboardHtml(client) {
 
       const titles = {
         overview: ['Dashboard Overview', 'Live performance metrics and server bot operations.'],
+        leaderboards: ['Server & Staff Leaderboards', 'Live rankings for staff duty hours, active patrol shifts, and application review performance.'],
         assistant: ['AI Dev Co-Pilot & Remote Command Engine', 'Chat with your AI Assistant to generate custom commands, dispatch embeds, update server settings, and control the bot remotely.'],
         messenger: ['Channel Messenger & Embed Builder', 'Dispatch text messages and custom embeds directly into Discord.'],
         panels: ['Deploy System Panels', 'One-click panel deployment for tickets, duty shifts, and applications.'],
@@ -1560,6 +1798,10 @@ function renderDashboardHtml(client) {
       if (titles[tabName]) {
         document.getElementById('view-title').innerText = titles[tabName][0];
         document.getElementById('view-desc').innerText = titles[tabName][1];
+      }
+
+      if (tabName === 'leaderboards') {
+        fetchLeaderboards();
       }
 
       if (tabName === 'settings') {
@@ -2172,11 +2414,140 @@ function renderDashboardHtml(client) {
       }
     }
 
+    // Leaderboards Fetcher and Renderer
+    async function fetchLeaderboards(showNotification = false) {
+      try {
+        const res = await fetch('/api/leaderboards');
+        const data = await res.json();
+        if (data.success) {
+          renderLeaderboards(data);
+          if (showNotification) showToast('✅ Leaderboards refreshed!');
+        }
+      } catch (err) {
+        console.error('Error fetching leaderboards:', err);
+      }
+    }
+
+    function renderLeaderboards(data) {
+      // 1. Summary Cards
+      const sum = data.summary || {};
+      if (sum.topStaff) {
+        document.getElementById('lb-top-staff').innerText = sum.topStaff.userTag;
+        document.getElementById('lb-top-staff-sub').innerText = \`\${sum.topStaff.formattedTotal} · \${sum.topStaff.totalShifts} shift\${sum.topStaff.totalShifts === 1 ? '' : 's'}\`;
+      } else {
+        document.getElementById('lb-top-staff').innerText = 'No Shifts Yet';
+        document.getElementById('lb-top-staff-sub').innerText = '0 hrs · 0 shifts';
+      }
+
+      document.getElementById('lb-total-time').innerText = sum.formattedServerMs || '0 hrs';
+      document.getElementById('lb-total-shifts').innerText = sum.totalServerShifts || 0;
+      document.getElementById('lb-total-staff-sub').innerText = \`\${sum.totalStaffTracked || 0} active staff tracked\`;
+
+      if (sum.topReviewer) {
+        document.getElementById('lb-top-reviewer').innerText = sum.topReviewer.reviewerTag;
+        document.getElementById('lb-top-reviewer-sub').innerText = \`\${sum.topReviewer.totalReviewed} processed (\${sum.topReviewer.acceptanceRate}% accepted)\`;
+      } else {
+        document.getElementById('lb-top-reviewer').innerText = 'No Reviews Yet';
+        document.getElementById('lb-top-reviewer-sub').innerText = '0 applications processed';
+      }
+
+      // 2. Shifts Leaderboard Table
+      const shiftsTbody = document.getElementById('lb-shifts-tbody');
+      if (shiftsTbody) {
+        const list = data.shiftsLeaderboard || [];
+        if (list.length === 0) {
+          shiftsTbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">No staff shift records logged yet. Use Clocky Duty to start logging!</td></tr>';
+        } else {
+          shiftsTbody.innerHTML = list.map((s, idx) => {
+            const rank = idx + 1;
+            let rankBadge = \`<span class="rank-badge rank-other">#\${rank}</span>\`;
+            if (rank === 1) rankBadge = '<span class="rank-badge rank-1">👑 1</span>';
+            else if (rank === 2) rankBadge = '<span class="rank-badge rank-2">🥈 2</span>';
+            else if (rank === 3) rankBadge = '<span class="rank-badge rank-3">🥉 3</span>';
+
+            const lastActiveStr = s.lastShiftEnd ? new Date(s.lastShiftEnd).toLocaleDateString() : 'Active Recently';
+
+            return \`
+              <tr>
+                <td>\${rankBadge}</td>
+                <td><strong>\${s.userTag}</strong></td>
+                <td><strong style="color: var(--accent);">\${s.formattedTotal}</strong></td>
+                <td>\${s.totalShifts} shift\${s.totalShifts === 1 ? '' : 's'}</td>
+                <td>\${s.formattedAvg}</td>
+                <td><small style="color: var(--text-muted);">\${lastActiveStr}</small></td>
+              </tr>
+            \`;
+          }).join('');
+        }
+      }
+
+      // 3. Application Reviewers Leaderboard Table
+      const reviewsTbody = document.getElementById('lb-reviews-tbody');
+      if (reviewsTbody) {
+        const rList = data.reviewsLeaderboard || [];
+        if (rList.length === 0) {
+          reviewsTbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">No application reviews processed yet.</td></tr>';
+        } else {
+          reviewsTbody.innerHTML = rList.map((r, idx) => {
+            const rank = idx + 1;
+            let rankBadge = \`<span class="rank-badge rank-other">#\${rank}</span>\`;
+            if (rank === 1) rankBadge = '<span class="rank-badge rank-1">👑 1</span>';
+            else if (rank === 2) rankBadge = '<span class="rank-badge rank-2">🥈 2</span>';
+            else if (rank === 3) rankBadge = '<span class="rank-badge rank-3">🥉 3</span>';
+
+            return \`
+              <tr>
+                <td>\${rankBadge}</td>
+                <td><strong>\${r.reviewerTag}</strong></td>
+                <td><strong>\${r.totalReviewed}</strong></td>
+                <td><span style="color: var(--accent); font-weight: 700;">\${r.accepted}</span></td>
+                <td><span style="color: var(--danger); font-weight: 700;">\${r.denied}</span></td>
+                <td><span class="tag-badge \${r.acceptanceRate >= 50 ? 'tag-working' : 'tag-pending'}">\${r.acceptanceRate}%</span></td>
+              </tr>
+            \`;
+          }).join('');
+        }
+      }
+
+      // 4. Recent Applications Activity Table
+      const recentAppsTbody = document.getElementById('lb-recent-apps-tbody');
+      if (recentAppsTbody) {
+        const aList = data.recentApplications || [];
+        if (aList.length === 0) {
+          recentAppsTbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">No staff applications submitted yet.</td></tr>';
+        } else {
+          recentAppsTbody.innerHTML = aList.map(a => {
+            let badgeClass = 'tag-pending';
+            if (a.status === 'ACCEPTED') badgeClass = 'tag-accepted';
+            if (a.status === 'DENIED') badgeClass = 'tag-denied';
+
+            const submittedStr = new Date(a.submittedAt).toLocaleDateString();
+
+            return \`
+              <tr>
+                <td><strong>\${a.userTag}</strong></td>
+                <td>\${submittedStr}</td>
+                <td><span class="tag-badge \${badgeClass}">\${a.status}</span></td>
+                <td>\${a.reviewedBy ? \`<strong>\${a.reviewedBy}</strong>\` : '<em style="color: var(--text-muted);">Pending Review</em>'}</td>
+                <td><small style="color: var(--text-muted);">\${a.reviewReason || 'None'}</small></td>
+              </tr>
+            \`;
+          }).join('');
+        }
+      }
+    }
+
     // Initial Load & Auto-Refresh
     fetchStatus();
     loadSettings();
     fetchDynamicCommands();
-    setInterval(fetchStatus, 6000);
+    fetchLeaderboards();
+    setInterval(() => {
+      fetchStatus();
+      if (document.getElementById('tab-leaderboards')?.classList.contains('active')) {
+        fetchLeaderboards();
+      }
+    }, 6000);
   </script>
 </body>
 </html>`;
