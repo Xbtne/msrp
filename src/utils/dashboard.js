@@ -8,7 +8,7 @@ const {
 } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
-const { getConfig } = require('./ticketHandler');
+const { getConfig, saveConfig } = require('./ticketHandler');
 const {
   getShiftsData,
   createClockyEmbed,
@@ -376,6 +376,69 @@ async function handleDashboardRequest(req, res, client) {
     }
   }
 
+  // API ROUTE: Get Bot Server Configuration
+  if (pathname === '/api/config' && req.method === 'GET') {
+    try {
+      const config = getConfig();
+      return sendJson(res, 200, { success: true, config });
+    } catch (err) {
+      return sendJson(res, 500, { success: false, error: err.message });
+    }
+  }
+
+  // API ROUTE: Save Bot Server Configuration
+  if (pathname === '/api/config' && req.method === 'POST') {
+    try {
+      const body = await parseRequestBody(req);
+      const currentConfig = getConfig();
+
+      if (body.logChannelId !== undefined) currentConfig.logChannelId = body.logChannelId.trim();
+      if (body.shiftLogChannelId !== undefined) currentConfig.shiftLogChannelId = body.shiftLogChannelId.trim();
+      if (body.appLogChannelId !== undefined) currentConfig.appLogChannelId = body.appLogChannelId.trim();
+      if (body.reviewsChannelId !== undefined) currentConfig.reviewsChannelId = body.reviewsChannelId.trim();
+      if (body.bibiChannelId !== undefined) currentConfig.bibiChannelId = body.bibiChannelId.trim();
+      if (body.pingRoleId !== undefined) currentConfig.pingRoleId = body.pingRoleId.trim();
+      if (body.defaultCategoryId !== undefined) currentConfig.defaultCategoryId = body.defaultCategoryId.trim();
+      if (body.robloxWebhookUrl !== undefined) currentConfig.robloxWebhookUrl = body.robloxWebhookUrl.trim();
+      if (body.robloxUniverseId !== undefined) currentConfig.robloxUniverseId = body.robloxUniverseId.trim();
+      if (body.robloxApiKey !== undefined) currentConfig.robloxApiKey = body.robloxApiKey.trim();
+
+      if (Array.isArray(body.staffRoleIds)) {
+        currentConfig.staffRoleIds = body.staffRoleIds.map(id => id.trim()).filter(Boolean);
+      } else if (typeof body.staffRoleIds === 'string') {
+        currentConfig.staffRoleIds = body.staffRoleIds.split(',').map(id => id.trim()).filter(Boolean);
+      }
+
+      if (Array.isArray(body.whitelistedAntiPingIds)) {
+        currentConfig.whitelistedAntiPingIds = body.whitelistedAntiPingIds.map(id => id.trim()).filter(Boolean);
+      } else if (typeof body.whitelistedAntiPingIds === 'string') {
+        currentConfig.whitelistedAntiPingIds = body.whitelistedAntiPingIds.split(',').map(id => id.trim()).filter(Boolean);
+      }
+
+      if (Array.isArray(body.allowedMassPingCategoryIds)) {
+        currentConfig.allowedMassPingCategoryIds = body.allowedMassPingCategoryIds.map(id => id.trim()).filter(Boolean);
+      } else if (typeof body.allowedMassPingCategoryIds === 'string') {
+        currentConfig.allowedMassPingCategoryIds = body.allowedMassPingCategoryIds.split(',').map(id => id.trim()).filter(Boolean);
+      }
+
+      if (body.panel && typeof body.panel === 'object') {
+        currentConfig.panel = {
+          ...currentConfig.panel,
+          ...body.panel
+        };
+      }
+
+      const saved = saveConfig(currentConfig);
+      if (!saved) {
+        return sendJson(res, 500, { success: false, error: 'Failed to write configuration file' });
+      }
+
+      return sendJson(res, 200, { success: true, config: currentConfig });
+    } catch (err) {
+      return sendJson(res, 500, { success: false, error: err.message });
+    }
+  }
+
   // DEFAULT ROUTE: Render the Full Tickety-style Web Dashboard
   res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
   res.end(renderDashboardHtml(client));
@@ -704,7 +767,10 @@ function renderDashboardHtml(client) {
         <span class="nav-icon">🛡️</span> Security & Anti-Ping
       </a>
       <a class="nav-item" onclick="switchTab('channels')">
-        <span class="nav-icon">⚙️</span> Channel Controls
+        <span class="nav-icon">🛠️</span> Channel Controls
+      </a>
+      <a class="nav-item" onclick="switchTab('settings')">
+        <span class="nav-icon">⚙️</span> Server Settings
       </a>
     </nav>
 
@@ -1097,12 +1163,133 @@ function renderDashboardHtml(client) {
         </div>
       </div>
     </div>
+
+    <!-- TAB 9: BOT & SERVER SETTINGS -->
+    <div id="tab-settings" class="tab-content">
+      <div class="card">
+        <div class="card-header">
+          <h3>⚙️ Bot Configuration & Server Channels</h3>
+          <button class="btn btn-primary" onclick="saveSettings()">💾 Save All Settings</button>
+        </div>
+        <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1.25rem;">
+          Manage your server log channels, staff permissions, anti-mass ping security whitelists, and Roblox integration directly from this dashboard without needing extra slash commands.
+        </p>
+
+        <!-- System Channels Group -->
+        <h4 style="margin-bottom: 0.75rem; color: #818cf8; font-size: 1rem; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 0.5rem;">📋 System & Logging Channels</h4>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Staff Shift / Clock-In Logs Channel</label>
+            <select id="cfg-shift-log-select" class="form-control"></select>
+            <small style="color: var(--text-muted); font-size: 0.75rem;">Logs clock-in, clock-out, and break reports.</small>
+          </div>
+          <div class="form-group">
+            <label>Staff Application Reviews Channel</label>
+            <select id="cfg-app-log-select" class="form-control"></select>
+            <small style="color: var(--text-muted); font-size: 0.75rem;">Receives submitted staff questionnaires & accept/deny buttons.</small>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>General Ticket Logs Channel</label>
+            <select id="cfg-log-select" class="form-control"></select>
+            <small style="color: var(--text-muted); font-size: 0.75rem;">Ticket creation, closure transcripts, and audit logs.</small>
+          </div>
+          <div class="form-group">
+            <label>Bibi Netanyahu AI Parody Channel</label>
+            <select id="cfg-bibi-select" class="form-control"></select>
+            <small style="color: var(--text-muted); font-size: 0.75rem;">AI roast & speech channel (unhinged mode).</small>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Default Ticket Category ID</label>
+            <input type="text" id="cfg-default-category" class="form-control" placeholder="e.g. 1538405571001065503">
+          </div>
+          <div class="form-group">
+            <label>Customer Reviews Channel ID (Optional)</label>
+            <input type="text" id="cfg-reviews-channel" class="form-control" placeholder="Channel ID">
+          </div>
+        </div>
+
+        <!-- Staff Roles & Security Whitelist -->
+        <h4 style="margin: 1.5rem 0 0.75rem; color: #818cf8; font-size: 1rem; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 0.5rem;">🛡️ Staff Roles & Anti-Mass Ping Whitelist</h4>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Staff Role IDs (comma-separated)</label>
+            <input type="text" id="cfg-staff-roles" class="form-control" placeholder="1544965232625983488, 1234567890...">
+            <small style="color: var(--text-muted); font-size: 0.75rem;">Roles with staff management & ticket access.</small>
+          </div>
+          <div class="form-group">
+            <label>Ticket Ping Role ID</label>
+            <input type="text" id="cfg-ping-role" class="form-control" placeholder="1544965232625983488">
+            <small style="color: var(--text-muted); font-size: 0.75rem;">Role pinged when a new ticket is opened.</small>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Anti-Mass Ping Whitelisted IDs (User or Role IDs)</label>
+            <input type="text" id="cfg-anti-ping-whitelist" class="form-control" placeholder="1544073936961273970, 719273912684249160...">
+            <small style="color: var(--text-muted); font-size: 0.75rem;">Users & roles exempt from anti-mass-ping auto-bans.</small>
+          </div>
+          <div class="form-group">
+            <label>Allowed Mass-Ping Category IDs</label>
+            <input type="text" id="cfg-allowed-ping-categories" class="form-control" placeholder="1536249828730867725, 1536249828302921731">
+            <small style="color: var(--text-muted); font-size: 0.75rem;">Announcement categories where @everyone is allowed.</small>
+          </div>
+        </div>
+
+        <!-- Roblox Integration -->
+        <h4 style="margin: 1.5rem 0 0.75rem; color: #818cf8; font-size: 1rem; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 0.5rem;">🎮 Roblox Open Cloud & Universe Integration</h4>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Roblox Universe ID</label>
+            <input type="text" id="cfg-roblox-universe" class="form-control" placeholder="e.g. 10761915391">
+          </div>
+          <div class="form-group">
+            <label>Roblox Open Cloud API Key</label>
+            <input type="password" id="cfg-roblox-key" class="form-control" placeholder="Roblox Open Cloud API Key">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Roblox Discord Notification Webhook URL</label>
+          <input type="text" id="cfg-roblox-webhook" class="form-control" placeholder="https://discord.com/api/webhooks/...">
+        </div>
+
+        <!-- Ticket Panel Appearance Customization -->
+        <h4 style="margin: 1.5rem 0 0.75rem; color: #818cf8; font-size: 1rem; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 0.5rem;">🎫 Ticket Panel Appearance</h4>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Panel Embed Title</label>
+            <input type="text" id="cfg-panel-title" class="form-control" placeholder="📬 Monroe County Ticket System">
+          </div>
+          <div class="form-group">
+            <label>Panel Embed Color (Hex)</label>
+            <input type="color" id="cfg-panel-color" class="form-control" style="height: 44px; padding: 0.2rem;" value="#5865F2">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Panel Embed Description</label>
+          <textarea id="cfg-panel-desc" class="form-control" style="min-height: 80px;" placeholder="Ticket panel description..."></textarea>
+        </div>
+        <div class="form-group">
+          <label>Panel Embed Footer</label>
+          <input type="text" id="cfg-panel-footer" class="form-control" placeholder="Click a button below to open a ticket">
+        </div>
+
+        <div style="margin-top: 1.5rem; display: flex; gap: 1rem;">
+          <button class="btn btn-primary" onclick="saveSettings()">💾 Save All Server Settings</button>
+          <button class="btn btn-secondary" onclick="loadSettings(true)">🔄 Reload Settings</button>
+        </div>
+      </div>
+    </div>
   </main>
 
   <div id="toast">✅ Action completed successfully!</div>
 
   <script>
     let globalStatus = null;
+    let currentConfigData = null;
 
     function showToast(msg, isError = false) {
       const toast = document.getElementById('toast');
@@ -1130,12 +1317,17 @@ function renderDashboardHtml(client) {
         applications: ['Staff Applications Review', 'Review answers and accept/deny staff applicants with 1-click.'],
         welcomer: ['Welcomer System', 'Configure automated server greetings, welcome channels, and auto-roles.'],
         security: ['Security & Honeypot', 'Anti-mass ping and honeypot security status.'],
-        channels: ['Channel Moderation Tools', 'Lock, slowmode, and purge Discord channels remotely.']
+        channels: ['Channel Moderation Tools', 'Lock, slowmode, and purge Discord channels remotely.'],
+        settings: ['Bot & Server Settings', 'Configure log channels, staff roles, security whitelists, and Roblox integration live.']
       };
 
       if (titles[tabName]) {
         document.getElementById('view-title').innerText = titles[tabName][0];
         document.getElementById('view-desc').innerText = titles[tabName][1];
+      }
+
+      if (tabName === 'settings') {
+        loadSettings();
       }
     }
 
@@ -1163,7 +1355,11 @@ function renderDashboardHtml(client) {
         document.getElementById('embed-channel-select'),
         document.getElementById('panel-channel-select'),
         document.getElementById('mod-channel-select'),
-        document.getElementById('welcomer-channel-select')
+        document.getElementById('welcomer-channel-select'),
+        document.getElementById('cfg-shift-log-select'),
+        document.getElementById('cfg-app-log-select'),
+        document.getElementById('cfg-log-select'),
+        document.getElementById('cfg-bibi-select')
       ];
 
       const channels = [];
@@ -1177,13 +1373,30 @@ function renderDashboardHtml(client) {
         if (!select) return;
         const currentVal = select.value;
         select.innerHTML = '';
+
+        // For config selects, add empty option
+        if (select.id && select.id.startsWith('cfg-')) {
+          const defaultOpt = document.createElement('option');
+          defaultOpt.value = '';
+          defaultOpt.textContent = '-- Select Channel (or leave empty) --';
+          select.appendChild(defaultOpt);
+        }
+
         channels.forEach(ch => {
           const opt = document.createElement('option');
           opt.value = ch.id;
           opt.textContent = ch.label;
           select.appendChild(opt);
         });
-        if (currentVal) select.value = currentVal;
+
+        if (currentVal) {
+          select.value = currentVal;
+        } else if (currentConfigData) {
+          if (select.id === 'cfg-shift-log-select') select.value = currentConfigData.shiftLogChannelId || '';
+          if (select.id === 'cfg-app-log-select') select.value = currentConfigData.appLogChannelId || '';
+          if (select.id === 'cfg-log-select') select.value = currentConfigData.logChannelId || '';
+          if (select.id === 'cfg-bibi-select') select.value = currentConfigData.bibiChannelId || '';
+        }
       });
 
       // Render Active Shifts
@@ -1450,8 +1663,87 @@ function renderDashboardHtml(client) {
       }
     }
 
+    async function loadSettings(showNotification = false) {
+      try {
+        const res = await fetch('/api/config');
+        const data = await res.json();
+        if (data.success && data.config) {
+          currentConfigData = data.config;
+          const c = data.config;
+
+          if (document.getElementById('cfg-shift-log-select')) document.getElementById('cfg-shift-log-select').value = c.shiftLogChannelId || '';
+          if (document.getElementById('cfg-app-log-select')) document.getElementById('cfg-app-log-select').value = c.appLogChannelId || '';
+          if (document.getElementById('cfg-log-select')) document.getElementById('cfg-log-select').value = c.logChannelId || '';
+          if (document.getElementById('cfg-bibi-select')) document.getElementById('cfg-bibi-select').value = c.bibiChannelId || '';
+          if (document.getElementById('cfg-default-category')) document.getElementById('cfg-default-category').value = c.defaultCategoryId || '';
+          if (document.getElementById('cfg-reviews-channel')) document.getElementById('cfg-reviews-channel').value = c.reviewsChannelId || '';
+
+          if (document.getElementById('cfg-staff-roles')) document.getElementById('cfg-staff-roles').value = (c.staffRoleIds || []).join(', ');
+          if (document.getElementById('cfg-ping-role')) document.getElementById('cfg-ping-role').value = c.pingRoleId || '';
+          if (document.getElementById('cfg-anti-ping-whitelist')) document.getElementById('cfg-anti-ping-whitelist').value = (c.whitelistedAntiPingIds || []).join(', ');
+          if (document.getElementById('cfg-allowed-ping-categories')) document.getElementById('cfg-allowed-ping-categories').value = (c.allowedMassPingCategoryIds || []).join(', ');
+
+          if (document.getElementById('cfg-roblox-universe')) document.getElementById('cfg-roblox-universe').value = c.robloxUniverseId || '';
+          if (document.getElementById('cfg-roblox-key')) document.getElementById('cfg-roblox-key').value = c.robloxApiKey || '';
+          if (document.getElementById('cfg-roblox-webhook')) document.getElementById('cfg-roblox-webhook').value = c.robloxWebhookUrl || '';
+
+          if (c.panel) {
+            if (document.getElementById('cfg-panel-title')) document.getElementById('cfg-panel-title').value = c.panel.title || '';
+            if (document.getElementById('cfg-panel-desc')) document.getElementById('cfg-panel-desc').value = c.panel.description || '';
+            if (document.getElementById('cfg-panel-color')) document.getElementById('cfg-panel-color').value = c.panel.color || '#5865F2';
+            if (document.getElementById('cfg-panel-footer')) document.getElementById('cfg-panel-footer').value = c.panel.footer || '';
+          }
+
+          if (showNotification) showToast('✅ Settings loaded from server!');
+        }
+      } catch (err) {
+        console.error('Failed to load settings:', err);
+      }
+    }
+
+    async function saveSettings() {
+      try {
+        const payload = {
+          shiftLogChannelId: document.getElementById('cfg-shift-log-select')?.value || '',
+          appLogChannelId: document.getElementById('cfg-app-log-select')?.value || '',
+          logChannelId: document.getElementById('cfg-log-select')?.value || '',
+          bibiChannelId: document.getElementById('cfg-bibi-select')?.value || '',
+          defaultCategoryId: document.getElementById('cfg-default-category')?.value || '',
+          reviewsChannelId: document.getElementById('cfg-reviews-channel')?.value || '',
+          staffRoleIds: document.getElementById('cfg-staff-roles')?.value || '',
+          pingRoleId: document.getElementById('cfg-ping-role')?.value || '',
+          whitelistedAntiPingIds: document.getElementById('cfg-anti-ping-whitelist')?.value || '',
+          allowedMassPingCategoryIds: document.getElementById('cfg-allowed-ping-categories')?.value || '',
+          robloxUniverseId: document.getElementById('cfg-roblox-universe')?.value || '',
+          robloxApiKey: document.getElementById('cfg-roblox-key')?.value || '',
+          robloxWebhookUrl: document.getElementById('cfg-roblox-webhook')?.value || '',
+          panel: {
+            title: document.getElementById('cfg-panel-title')?.value || '',
+            description: document.getElementById('cfg-panel-desc')?.value || '',
+            color: document.getElementById('cfg-panel-color')?.value || '#5865F2',
+            footer: document.getElementById('cfg-panel-footer')?.value || ''
+          }
+        };
+
+        const res = await fetch('/api/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('💾 Server settings saved & applied live!');
+        } else {
+          showToast('❌ Error: ' + data.error, true);
+        }
+      } catch (err) {
+        showToast('❌ Error saving: ' + err.message, true);
+      }
+    }
+
     // Initial Load & Auto-Refresh
     fetchStatus();
+    loadSettings();
     setInterval(fetchStatus, 6000);
   </script>
 </body>

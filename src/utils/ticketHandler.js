@@ -41,6 +41,16 @@ function getConfig() {
   return config;
 }
 
+function saveConfig(config) {
+  try {
+    fs.writeFileSync(path.join(__dirname, '../../config.json'), JSON.stringify(config, null, 2), 'utf8');
+    return true;
+  } catch (err) {
+    console.error('Error writing config.json:', err);
+    return false;
+  }
+}
+
 /**
  * Checks if a member has Staff privileges
  */
@@ -669,6 +679,7 @@ async function handleTicketTranscript(interaction) {
 module.exports = {
   isStaff,
   getConfig,
+  saveConfig,
   parseTicketTopic,
   createTicketControlRow,
   createTicketEmbed,
