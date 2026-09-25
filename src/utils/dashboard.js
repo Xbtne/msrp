@@ -1016,23 +1016,6 @@ function renderDashboardHtml(client) {
       </div>
     </div>
 
-    <!-- TAB 6: SECURITY & ANTI-PING -->
-    <div id="tab-security" class="tab-content">
-      <div class="card">
-        <div class="card-header">
-          <h3>🛡️ Anti-Mass-Ping Scam Interceptor</h3>
-        </div>
-        <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1rem;">
-          Automatically detects unauthorized <code>@everyone</code> or <code>@here</code> blasts outside of announcement categories, deletes the message, purges 7 days of history, and permanently bans compromised accounts.
-        </p>
-        <div style="display: flex; gap: 1rem; align-items: center;">
-          <div class="status-badge" style="padding: 0.5rem 1rem; font-size: 0.85rem;">
-            <div class="status-dot"></div>
-            <span>Anti-Mass Ping Shield: Active</span>
-          </div>
-        </div>
-      </div>
-
     <!-- TAB 6: WELCOMER -->
     <div id="tab-welcomer" class="tab-content">
       <div class="card">
@@ -1466,6 +1449,39 @@ function renderDashboardHtml(client) {
         tbodyApps.innerHTML = appRows.join('');
       } else {
         tbodyApps.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted);">No applications submitted yet.</td></tr>';
+      }
+
+      // Populate Welcomer Inputs from Live Server Configuration
+      if (data.welcomer) {
+        const guildId = data.guilds?.[0]?.id;
+        const w = (guildId && data.welcomer[guildId]) || Object.values(data.welcomer)[0];
+        if (w) {
+          const chSelect = document.getElementById('welcomer-channel-select');
+          if (chSelect && w.channelId && !chSelect.value) {
+            chSelect.value = w.channelId;
+          }
+          const enSelect = document.getElementById('welcomer-enabled-select');
+          if (enSelect && typeof w.enabled === 'boolean') {
+            enSelect.value = w.enabled ? 'true' : 'false';
+          }
+          const descInput = document.getElementById('welcomer-desc');
+          if (descInput && w.description && !descInput.dataset.touched) {
+            descInput.value = w.description;
+            updateWelcomerPreview();
+          }
+          const roleInput = document.getElementById('welcomer-autorole');
+          if (roleInput && w.autoRoleId && !roleInput.dataset.touched) {
+            roleInput.value = w.autoRoleId;
+          }
+          const dmEnSelect = document.getElementById('welcomer-dm-enabled');
+          if (dmEnSelect && typeof w.dmEnabled === 'boolean') {
+            dmEnSelect.value = w.dmEnabled ? 'true' : 'false';
+          }
+          const dmTextInput = document.getElementById('welcomer-dm-text');
+          if (dmTextInput && w.dmMessage && !dmTextInput.dataset.touched) {
+            dmTextInput.value = w.dmMessage;
+          }
+        }
       }
     }
 
