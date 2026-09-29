@@ -4,8 +4,7 @@ const {
   ButtonBuilder,
   ButtonStyle,
   ChannelType,
-  PermissionFlagsBits,
-  ComponentType
+  PermissionFlagsBits
 } = require('discord.js');
 const discordTranscripts = require('discord-html-transcripts');
 const fs = require('fs');
@@ -59,41 +58,101 @@ function saveConfig(config) {
  */
 function isStaff(member) {
   if (!member) return false;
-  if (member.permissions.has(PermissionFlagsBits.Administrator)) return true;
-  if (member.permissions.has(PermissionFlagsBits.ManageChannels)) return true;
-  if (member.permissions.has(PermissionFlagsBits.ManageGuild)) return true;
+
+  // Check admin & manage channels permissions
+  if (member.permissions && typeof member.permissions.has === 'function') {
+    if (member.permissions.has(PermissionFlagsBits.Administrator)) return true;
+    if (member.permissions.has(PermissionFlagsBits.ManageChannels)) return true;
+    if (member.permissions.has(PermissionFlagsBits.ManageGuild)) return true;
+  }
 
   const config = getConfig();
   const staffRoleIds = config.staffRoleIds || [];
 
-  // Check defined role IDs
-  for (const roleId of staffRoleIds) {
-    if (roleId && member.roles.cache.has(roleId)) return true;
+  // Check roles cache
+  if (member.roles?.cache) {
+    for (const roleId of staffRoleIds) {
+      if (roleId && member.roles.cache.has(roleId)) return true;
+    }
+
+    const staffRoleNames = ['staff', 'admin', 'administrator', 'moderator', 'mod', 'support', 'helper'];
+    const hasNamedRole = member.roles.cache.some(role =>
+      staffRoleNames.some(name => role.name.toLowerCase().includes(name))
+    );
+    if (hasNamedRole) return true;
+  } else if (Array.isArray(member.roles)) {
+    // Array of role IDs (API interaction)
+    for (const roleId of staffRoleIds) {
+      if (roleId && member.roles.includes(roleId)) return true;
+    }
   }
 
-  // Fallback: check if member has any role named "Staff", "Admin", "Moderator", "Support"
-  const staffRoleNames = ['staff', 'admin', 'administrator', 'moderator', 'mod', 'support', 'helper'];
-  const hasNamedRole = member.roles.cache.some(role =>
-    staffRoleNames.some(name => role.name.toLowerCase().includes(name))
-  );
-
-  return hasNamedRole;
+  return false;
 }
 
 /**
  * Parse metadata stored in channel topic
  */
 function parseTicketTopic(topic) {
-  if (!topic) return null;
-  const ownerMatch = topic.match(/Owner: (\d+)/);
-  const typeMatch = topic.match(/Type: ([a-zA-Z0-9_-]+)/);
-  const claimedMatch = topic.match(/Claimed: (\d+|None)/);
+  if (!topic || typeof topic !== 'string') return null;
+  const ownerMatch = topic.match(/Owner:\s*(\d+)/i);
+  const typeMatch = topic.match(/Type:\s*([a-zA-Z0-9_-]+)/i);
+  const claimedMatch = topic.match(/Claimed:\s*(\d+|None)/i);
+
+  if (!ownerMatch && !typeMatch) return null;
 
   return {
     ownerId: ownerMatch ? ownerMatch[1] : null,
     typeId: typeMatch ? typeMatch[1] : null,
     claimedBy: claimedMatch && claimedMatch[1] !== 'None' ? claimedMatch[1] : null
   };
+}
+
+/**
+ * Robust ticket metadata detector (topic -> channel name -> overwrites -> message search)
+ */
+async function getTicketMetadata(channel) {
+  if (!channel) return null;
+
+  // 1. Try channel topic
+  let topic = channel.topic;
+  if (!topic && channel.id && channel.guild) {
+    const fetched = await channel.guild.channels.fetch(channel.id).catch(() => null);
+    if (fetched?.topic) topic = fetched.topic;
+  }
+
+  const fromTopic = parseTicketTopic(topic);
+  if (fromTopic) return fromTopic;
+
+  // 2. Fallback: check channel name prefix (e.g. game-username, support-username, etc.)
+  const config = getConfig();
+  const name = channel.name || '';
+  let matchedType = config.ticketTypes.find(t => name.startsWith((t.channelPrefix || t.id).toLowerCase() + '-'));
+
+  if (!matchedType && (name.startsWith('ticket-') || name.startsWith('close-'))) {
+    matchedType = config.ticketTypes[0] || { id: 'support_ticket', label: 'Support' };
+  }
+
+  if (matchedType) {
+    // Try to find non-staff user overwrite as owner
+    let ownerId = null;
+    if (channel.permissionOverwrites?.cache) {
+      for (const [id, overwrite] of channel.permissionOverwrites.cache) {
+        if (overwrite.type === 1 && id !== channel.client.user.id && !config.staffRoleIds?.includes(id)) {
+          ownerId = id;
+          break;
+        }
+      }
+    }
+
+    return {
+      ownerId: ownerId || null,
+      typeId: matchedType.id,
+      claimedBy: null
+    };
+  }
+
+  return null;
 }
 
 /**
@@ -133,18 +192,18 @@ function createTicketControlRow(isClaimed = false, claimedBy = null) {
  */
 function createTicketEmbed(typeConfig, user, claimedMember = null) {
   const embed = new EmbedBuilder()
-    .setTitle(typeConfig.welcomeTitle || `${typeConfig.label} Ticket`)
+    .setTitle(typeConfig.welcomeTitle || `${typeConfig.label || 'Support'} Ticket`)
     .setDescription(
       `${typeConfig.welcomeDescription || 'Staff will be with you shortly.'}\n\n` +
-      `👤 **Ticket Creator:** <@${user.id}> (${user.tag})\n` +
-      `🏷️ **Category:** ${typeConfig.label}\n` +
+      `👤 **Ticket Creator:** <@${user.id}> (${user.tag || user.username || 'User'})\n` +
+      `🏷️ **Category:** ${typeConfig.label || 'Support'}\n` +
       `📌 **Status:** ${claimedMember ? `Claimed by <@${claimedMember.id}>` : '🟢 Open / Awaiting Staff'}`
     )
     .setColor(claimedMember ? 0xFEE75C : 0x5865F2)
-    .setThumbnail(user.displayAvatarURL({ dynamic: true }))
+    .setThumbnail(user.displayAvatarURL ? user.displayAvatarURL({ dynamic: true }) : null)
     .setFooter({
       text: `Ticket ID: ${user.id} • Use buttons below to manage`,
-      iconURL: user.displayAvatarURL({ dynamic: true })
+      iconURL: user.displayAvatarURL ? user.displayAvatarURL({ dynamic: true }) : null
     })
     .setTimestamp();
 
@@ -157,7 +216,7 @@ function createTicketEmbed(typeConfig, user, claimedMember = null) {
   if (claimedMember) {
     embed.addFields({
       name: '👑 Claimed By Staff Member',
-      value: `<@${claimedMember.id}> (${claimedMember.user.tag})`,
+      value: `<@${claimedMember.id}> (${claimedMember.user?.tag || claimedMember.displayName || 'Staff'})`,
       inline: true
     });
   }
@@ -166,22 +225,22 @@ function createTicketEmbed(typeConfig, user, claimedMember = null) {
 }
 
 /**
- * Creates a new ticket channel when a user clicks one of the 3 buttons
+ * Creates a new ticket channel when a user clicks one of the buttons
  */
 async function handleTicketCreate(interaction, typeId) {
   const config = getConfig();
   const guild = interaction.guild;
   const user = interaction.user;
 
-  const typeConfig = config.ticketTypes.find(t => t.id === typeId);
-  if (!typeConfig) {
-    return interaction.reply({
-      content: '❌ Invalid ticket type configuration.',
-      ephemeral: true
-    });
-  }
+  const typeConfig = config.ticketTypes.find(t => t.id === typeId) || {
+    id: typeId,
+    label: 'Support Ticket',
+    channelPrefix: 'support',
+    welcomeTitle: '🎫 Support Ticket',
+    welcomeDescription: 'Thank you for reaching out! A staff member will assist you shortly.'
+  };
 
-  // Check if user already has an open ticket of this type or in general
+  // Check if user already has an open ticket of this type
   const existingChannel = guild.channels.cache.find(c => {
     if (c.type !== ChannelType.GuildText) return false;
     const metadata = parseTicketTopic(c.topic);
@@ -195,14 +254,15 @@ async function handleTicketCreate(interaction, typeId) {
     });
   }
 
-  await interaction.deferReply({ ephemeral: true });
+  try {
+    if (!interaction.deferred && !interaction.replied) {
+      await interaction.deferReply({ ephemeral: true });
+    }
+  } catch (deferErr) {
+    if (deferErr.code === 40060 || deferErr.code === 10062) return;
+  }
 
   try {
-    if (!interaction.client.token && process.env.DISCORD_TOKEN) {
-      interaction.client.token = process.env.DISCORD_TOKEN;
-      interaction.client.rest.setToken(process.env.DISCORD_TOKEN);
-    }
-
     const botUserId = interaction.client.user.id;
 
     // Determine permissions
@@ -237,9 +297,11 @@ async function handleTicketCreate(interaction, typeId) {
     // Add configured staff roles to permissions
     if (config.staffRoleIds && Array.isArray(config.staffRoleIds)) {
       for (const roleId of config.staffRoleIds) {
-        if (roleId && guild.roles.cache.has(roleId)) {
+        if (!roleId) continue;
+        const role = guild.roles.cache.get(roleId) || (await guild.roles.fetch(roleId).catch(() => null));
+        if (role) {
           permissionOverwrites.push({
-            id: roleId,
+            id: role.id,
             allow: [
               PermissionFlagsBits.ViewChannel,
               PermissionFlagsBits.SendMessages,
@@ -252,7 +314,8 @@ async function handleTicketCreate(interaction, typeId) {
       }
     }
 
-    const channelName = `${typeConfig.channelPrefix || 'ticket'}-${user.username}`.toLowerCase().replace(/[^a-z0-9_-]/g, '');
+    const rawName = `${typeConfig.channelPrefix || 'ticket'}-${user.username || 'user'}`.toLowerCase().replace(/[^a-z0-9_-]/g, '');
+    const channelName = rawName.slice(0, 30) || `ticket-${user.id.slice(-4)}`;
 
     const channelOptions = {
       name: channelName,
@@ -263,19 +326,33 @@ async function handleTicketCreate(interaction, typeId) {
 
     const targetCategoryId = typeConfig.categoryId || config.defaultCategoryId;
     if (targetCategoryId) {
-      const categoryExists =
+      const category =
         guild.channels.cache.get(targetCategoryId) ||
         (await guild.channels.fetch(targetCategoryId).catch(() => null));
-      if (categoryExists) {
-        channelOptions.parent = targetCategoryId;
+      if (category && category.type === ChannelType.GuildCategory) {
+        // Only set parent if category is not full (max 50)
+        const childCount = guild.channels.cache.filter(c => c.parentId === category.id).size;
+        if (childCount < 50) {
+          channelOptions.parent = category.id;
+        }
       }
     }
 
-    const channel = await guild.channels.create(channelOptions);
+    let channel;
+    try {
+      channel = await guild.channels.create(channelOptions);
+    } catch (createErr) {
+      // If parent category caused failure, retry without parent
+      if (channelOptions.parent) {
+        delete channelOptions.parent;
+        channel = await guild.channels.create(channelOptions);
+      } else {
+        throw createErr;
+      }
+    }
 
     const embed = createTicketEmbed(typeConfig, user, null);
     const row = createTicketControlRow(false, null);
-
     const pingRoleStr = config.pingRoleId ? `<@&${config.pingRoleId}>` : 'Our staff team';
 
     const ticketMsg = await channel.send({
@@ -286,14 +363,16 @@ async function handleTicketCreate(interaction, typeId) {
 
     await ticketMsg.pin().catch(() => {});
 
-    await interaction.editReply({
+    return await interaction.editReply({
       content: `✅ Your ticket has been created: ${channel}`
     });
   } catch (error) {
     console.error('Error creating ticket channel:', error);
-    await interaction.editReply({
-      content: `❌ Failed to create ticket: ${error.message}`
-    });
+    try {
+      await interaction.editReply({
+        content: `❌ Failed to create ticket: ${error.message}`
+      });
+    } catch (e) {}
   }
 }
 
@@ -310,10 +389,10 @@ async function handleTicketClaim(interaction) {
   }
 
   const channel = interaction.channel;
-  const metadata = parseTicketTopic(channel.topic);
+  const metadata = await getTicketMetadata(channel);
 
   if (!metadata) {
-    const errorMsg = '❌ This channel is not a valid ticket channel.';
+    const errorMsg = '❌ This channel is not recognized as an active ticket.';
     if (interaction.deferred || interaction.replied) {
       return interaction.editReply({ content: errorMsg });
     }
@@ -347,20 +426,24 @@ async function handleTicketClaim(interaction) {
     welcomeDescription: ''
   };
 
-  const owner = await interaction.client.users.fetch(metadata.ownerId).catch(() => null);
+  const owner = metadata.ownerId
+    ? await interaction.client.users.fetch(metadata.ownerId).catch(() => ({ id: metadata.ownerId, tag: 'User', displayAvatarURL: () => '' }))
+    : { id: interaction.user.id, tag: 'User', displayAvatarURL: () => '' };
 
   // Update channel topic
-  await channel.setTopic(formatTopic(metadata.ownerId, metadata.typeId, interaction.user.id));
+  await channel.setTopic(formatTopic(metadata.ownerId || owner.id, metadata.typeId, interaction.user.id)).catch(() => {});
 
-  // Update original pinned embed / message
-  const pinnedMessages = await channel.messages.fetchPinned().catch(() => null);
-  const ticketMessage = pinnedMessages ? pinnedMessages.first() : null;
+  // Update original embed / message
+  try {
+    const messages = await channel.messages.fetch({ limit: 15 }).catch(() => null);
+    const ticketMessage = messages?.find(m => m.author.id === interaction.client.user.id && m.components.length > 0);
 
-  if (ticketMessage && ticketMessage.author.id === interaction.client.user.id) {
-    const updatedEmbed = createTicketEmbed(typeConfig, owner || { id: metadata.ownerId, tag: 'User', displayAvatarURL: () => '' }, interaction.member);
-    const updatedRow = createTicketControlRow(true, interaction.user.id);
-    await ticketMessage.edit({ embeds: [updatedEmbed], components: [updatedRow] }).catch(console.error);
-  }
+    if (ticketMessage) {
+      const updatedEmbed = createTicketEmbed(typeConfig, owner, interaction.member);
+      const updatedRow = createTicketControlRow(true, interaction.user.id);
+      await ticketMessage.edit({ embeds: [updatedEmbed], components: [updatedRow] }).catch(() => {});
+    }
+  } catch (e) {}
 
   const claimNotificationEmbed = new EmbedBuilder()
     .setTitle('🙋 Ticket Claimed')
@@ -369,9 +452,9 @@ async function handleTicketClaim(interaction) {
     .setTimestamp();
 
   if (interaction.isChatInputCommand && interaction.isChatInputCommand()) {
-    await interaction.editReply({ embeds: [claimNotificationEmbed] });
+    await interaction.editReply({ embeds: [claimNotificationEmbed] }).catch(() => {});
   } else {
-    await channel.send({ embeds: [claimNotificationEmbed] });
+    await channel.send({ embeds: [claimNotificationEmbed] }).catch(() => {});
   }
 }
 
@@ -388,7 +471,7 @@ async function handleTicketUnclaim(interaction) {
   }
 
   const channel = interaction.channel;
-  const metadata = parseTicketTopic(channel.topic);
+  const metadata = await getTicketMetadata(channel);
 
   if (!metadata || !metadata.claimedBy || metadata.claimedBy === 'None') {
     const errorMsg = '⚠️ This ticket is not currently claimed.';
@@ -398,8 +481,8 @@ async function handleTicketUnclaim(interaction) {
     return interaction.reply({ content: errorMsg, ephemeral: true });
   }
 
-  // Only the claiming staff member or an administrator can unclaim
-  if (metadata.claimedBy !== interaction.user.id && !interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
+  const isAdmin = interaction.member.permissions?.has(PermissionFlagsBits.Administrator) || interaction.user.id === interaction.guild.ownerId;
+  if (metadata.claimedBy !== interaction.user.id && !isAdmin) {
     const errorMsg = `❌ Only <@${metadata.claimedBy}> or an Administrator can unclaim this ticket.`;
     if (interaction.deferred || interaction.replied) {
       return interaction.editReply({ content: errorMsg });
@@ -426,20 +509,24 @@ async function handleTicketUnclaim(interaction) {
     welcomeDescription: ''
   };
 
-  const owner = await interaction.client.users.fetch(metadata.ownerId).catch(() => null);
+  const owner = metadata.ownerId
+    ? await interaction.client.users.fetch(metadata.ownerId).catch(() => ({ id: metadata.ownerId, tag: 'User', displayAvatarURL: () => '' }))
+    : { id: interaction.user.id, tag: 'User', displayAvatarURL: () => '' };
 
   // Update channel topic
-  await channel.setTopic(formatTopic(metadata.ownerId, metadata.typeId, 'None'));
+  await channel.setTopic(formatTopic(metadata.ownerId || owner.id, metadata.typeId, 'None')).catch(() => {});
 
-  // Update original pinned embed / message
-  const pinnedMessages = await channel.messages.fetchPinned().catch(() => null);
-  const ticketMessage = pinnedMessages ? pinnedMessages.first() : null;
+  // Update original embed / message
+  try {
+    const messages = await channel.messages.fetch({ limit: 15 }).catch(() => null);
+    const ticketMessage = messages?.find(m => m.author.id === interaction.client.user.id && m.components.length > 0);
 
-  if (ticketMessage && ticketMessage.author.id === interaction.client.user.id) {
-    const updatedEmbed = createTicketEmbed(typeConfig, owner || { id: metadata.ownerId, tag: 'User', displayAvatarURL: () => '' }, null);
-    const updatedRow = createTicketControlRow(false, null);
-    await ticketMessage.edit({ embeds: [updatedEmbed], components: [updatedRow] }).catch(console.error);
-  }
+    if (ticketMessage) {
+      const updatedEmbed = createTicketEmbed(typeConfig, owner, null);
+      const updatedRow = createTicketControlRow(false, null);
+      await ticketMessage.edit({ embeds: [updatedEmbed], components: [updatedRow] }).catch(() => {});
+    }
+  } catch (e) {}
 
   const unclaimNotificationEmbed = new EmbedBuilder()
     .setTitle('🔓 Ticket Unclaimed')
@@ -448,9 +535,9 @@ async function handleTicketUnclaim(interaction) {
     .setTimestamp();
 
   if (interaction.isChatInputCommand && interaction.isChatInputCommand()) {
-    await interaction.editReply({ embeds: [unclaimNotificationEmbed] });
+    await interaction.editReply({ embeds: [unclaimNotificationEmbed] }).catch(() => {});
   } else {
-    await channel.send({ embeds: [unclaimNotificationEmbed] });
+    await channel.send({ embeds: [unclaimNotificationEmbed] }).catch(() => {});
   }
 }
 
@@ -476,7 +563,7 @@ async function handleTicketCloseRequest(interaction) {
     .setDescription('Are you sure you want to close this ticket? A transcript will be saved automatically.')
     .setColor(0xED4245);
 
-  await interaction.reply({
+  return await interaction.reply({
     embeds: [confirmEmbed],
     components: [row]
   });
@@ -498,38 +585,47 @@ async function handleTicketCancelClose(interaction) {
  */
 async function handleTicketConfirmClose(interaction) {
   const channel = interaction.channel;
-  const metadata = parseTicketTopic(channel.topic);
-
-  await interaction.update({
-    content: '⏳ Closing ticket and generating transcript...',
-    embeds: [],
-    components: []
-  });
+  const metadata = await getTicketMetadata(channel);
 
   try {
-    // Generate HTML Transcript
-    const attachment = await discordTranscripts.createTranscript(channel, {
-      limit: -1,
-      returnType: 'attachment',
-      filename: `${channel.name}-transcript.html`,
-      saveImages: true,
-      poweredBy: false
+    await interaction.update({
+      content: '⏳ Closing ticket and generating transcript...',
+      embeds: [],
+      components: []
     });
+  } catch (e) {}
+
+  let attachment = null;
+  try {
+    // Generate HTML Transcript with fallback
+    try {
+      attachment = await discordTranscripts.createTranscript(channel, {
+        limit: -1,
+        returnType: 'attachment',
+        filename: `${channel.name}-transcript.html`,
+        saveImages: false,
+        poweredBy: false
+      });
+    } catch (transcriptErr) {
+      console.warn('First transcript attempt failed, trying safe mode:', transcriptErr.message);
+      attachment = await discordTranscripts.createTranscript(channel, {
+        limit: 100,
+        returnType: 'attachment',
+        filename: `${channel.name}-transcript.html`,
+        saveImages: false,
+        poweredBy: false
+      }).catch(() => null);
+    }
 
     const config = getConfig();
     const typeConfig = config.ticketTypes.find(t => t.id === metadata?.typeId);
 
-    // Fetch messages to compute message statistics
+    // Fetch messages to compute message statistics (capped at 500 messages)
     const messageCounts = {};
     let totalMessages = 0;
     try {
-      let lastId;
-      while (true) {
-        const options = { limit: 100 };
-        if (lastId) options.before = lastId;
-        const fetched = await channel.messages.fetch(options);
-        if (fetched.size === 0) break;
-
+      const fetched = await channel.messages.fetch({ limit: 100 }).catch(() => null);
+      if (fetched) {
         for (const msg of fetched.values()) {
           if (!msg.author.bot) {
             const uid = msg.author.id;
@@ -537,15 +633,9 @@ async function handleTicketConfirmClose(interaction) {
             totalMessages++;
           }
         }
-
-        lastId = fetched.last().id;
-        if (fetched.size < 100) break;
       }
-    } catch (countErr) {
-      console.warn('Error fetching message stats for log:', countErr);
-    }
+    } catch (countErr) {}
 
-    // Build message breakdown string
     let messageBreakdown = '';
     const sortedParticipants = Object.entries(messageCounts).sort(([, a], [, b]) => b - a);
     if (sortedParticipants.length > 0) {
@@ -557,7 +647,7 @@ async function handleTicketConfirmClose(interaction) {
       messageBreakdown = '*No user messages sent.*';
     }
 
-    // Send transcript to log channel if configured
+    // Send transcript to log channel
     if (config.logChannelId) {
       const logChannel =
         interaction.guild.channels.cache.get(config.logChannelId) ||
@@ -568,58 +658,27 @@ async function handleTicketConfirmClose(interaction) {
           .setTitle('📁 Ticket Closed & Transcript Logged')
           .setColor(0x5865F2)
           .addFields(
-            {
-              name: '🏷️ Ticket Name',
-              value: `\`#${channel.name}\``,
-              inline: true
-            },
-            {
-              name: '🆔 Ticket ID',
-              value: `\`${channel.id}\``,
-              inline: true
-            },
-            {
-              name: '📂 Category',
-              value: typeConfig ? `${typeConfig.emoji || ''} ${typeConfig.label}` : (metadata?.typeId || 'General'),
-              inline: true
-            },
-            {
-              name: '👤 Ticket Owner',
-              value: metadata?.ownerId ? `<@${metadata.ownerId}> (\`${metadata.ownerId}\`)` : 'Unknown',
-              inline: true
-            },
-            {
-              name: '👑 Staff Claimed',
-              value: metadata?.claimedBy && metadata.claimedBy !== 'None'
-                ? `<@${metadata.claimedBy}> (\`${metadata.claimedBy}\`)`
-                : '🔓 *Unclaimed*',
-              inline: true
-            },
-            {
-              name: '🔒 Closed By',
-              value: `<@${interaction.user.id}> (${interaction.user.tag})`,
-              inline: true
-            },
-            {
-              name: '💬 Messages Sent by Each Member',
-              value: messageBreakdown.length > 1024 ? messageBreakdown.slice(0, 1020) + '...' : messageBreakdown,
-              inline: false
-            }
+            { name: '🏷️ Ticket Name', value: `\`#${channel.name}\``, inline: true },
+            { name: '🆔 Ticket ID', value: `\`${channel.id}\``, inline: true },
+            { name: '📂 Category', value: typeConfig ? `${typeConfig.emoji || ''} ${typeConfig.label}` : (metadata?.typeId || 'General'), inline: true },
+            { name: '👤 Ticket Owner', value: metadata?.ownerId ? `<@${metadata.ownerId}> (\`${metadata.ownerId}\`)` : 'Unknown', inline: true },
+            { name: '👑 Staff Claimed', value: metadata?.claimedBy && metadata.claimedBy !== 'None' ? `<@${metadata.claimedBy}> (\`${metadata.claimedBy}\`)` : '🔓 *Unclaimed*', inline: true },
+            { name: '🔒 Closed By', value: `<@${interaction.user.id}> (${interaction.user.tag})`, inline: true },
+            { name: '💬 Messages Sent', value: messageBreakdown.length > 1024 ? messageBreakdown.slice(0, 1020) + '...' : messageBreakdown, inline: false }
           )
           .setThumbnail(interaction.guild.iconURL({ dynamic: true }))
           .setFooter({ text: `Ticket ID: ${channel.id} • Closed at` })
           .setTimestamp();
 
-        await logChannel.send({ embeds: [logEmbed], files: [attachment] }).catch(err => {
-          console.error('Failed to send transcript to log channel:', err);
-        });
+        const filesToSend = attachment ? [attachment] : [];
+        await logChannel.send({ embeds: [logEmbed], files: filesToSend }).catch(console.error);
       }
     }
 
-    // Try to DM the transcript to the ticket owner
+    // Try to DM transcript to ticket owner
     if (metadata && metadata.ownerId) {
       try {
-        const owner = await interaction.client.users.fetch(metadata.ownerId);
+        const owner = await interaction.client.users.fetch(metadata.ownerId).catch(() => null);
         if (owner) {
           const dmEmbed = new EmbedBuilder()
             .setTitle('📄 Ticket Transcript')
@@ -633,28 +692,30 @@ async function handleTicketConfirmClose(interaction) {
             .setColor(0x5865F2)
             .setTimestamp();
 
-          await owner.send({ embeds: [dmEmbed], files: [attachment] });
+          const dmFiles = attachment ? [attachment] : [];
+          await owner.send({ embeds: [dmEmbed], files: dmFiles }).catch(() => {});
         }
-      } catch (dmErr) {
-        console.log(`Could not DM user ${metadata.ownerId}: DMs likely closed.`);
-      }
+      } catch (dmErr) {}
     }
-
-    await channel.send('🛑 Ticket will be deleted in 5 seconds...');
+  } catch (error) {
+    console.error('Error during ticket close processing:', error);
+  } finally {
+    await channel.send('🛑 Ticket will be deleted in 4 seconds...').catch(() => {});
     setTimeout(() => {
       channel.delete().catch(console.error);
-    }, 5000);
-  } catch (error) {
-    console.error('Error during ticket close:', error);
-    await channel.send(`❌ Error while saving transcript or closing: ${error.message}`);
+    }, 4000);
   }
 }
 
 /**
- * Handle Manual Transcript generation button
+ * Handle Manual Transcript generation
  */
 async function handleTicketTranscript(interaction) {
-  await interaction.deferReply({ ephemeral: false });
+  try {
+    if (!interaction.deferred && !interaction.replied) {
+      await interaction.deferReply({ ephemeral: false });
+    }
+  } catch (e) {}
 
   try {
     const channel = interaction.channel;
@@ -662,13 +723,13 @@ async function handleTicketTranscript(interaction) {
       limit: -1,
       returnType: 'attachment',
       filename: `${channel.name}-transcript.html`,
-      saveImages: true,
+      saveImages: false,
       poweredBy: false
     });
 
     const embed = new EmbedBuilder()
       .setTitle('📑 Ticket Transcript Generated')
-      .setDescription(`Transcript successfully exported for ${channel.name}. Download the HTML file below to view the entire chat log.`)
+      .setDescription(`Transcript successfully exported for #${channel.name}. Download the HTML file below to view the entire chat log.`)
       .setColor(0x5865F2)
       .setTimestamp();
 
@@ -684,6 +745,7 @@ module.exports = {
   getConfig,
   saveConfig,
   parseTicketTopic,
+  getTicketMetadata,
   createTicketControlRow,
   createTicketEmbed,
   handleTicketCreate,

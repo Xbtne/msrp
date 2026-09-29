@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } = require('discord.js');
-const { isStaff, parseTicketTopic } = require('../utils/ticketHandler');
+const { isStaff, getTicketMetadata } = require('../utils/ticketHandler');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -27,7 +27,7 @@ module.exports = {
     } catch (e) {}
 
     const channel = interaction.channel;
-    const metadata = parseTicketTopic(channel.topic);
+    const metadata = await getTicketMetadata(channel);
 
     if (!metadata) {
       return interaction.editReply({
@@ -55,7 +55,7 @@ module.exports = {
       });
     }
 
-    if (targetUser.id === metadata.ownerId) {
+    if (metadata.ownerId && targetUser.id === metadata.ownerId) {
       return interaction.editReply({
         content: '❌ You cannot remove the ticket creator from their own ticket.'
       });

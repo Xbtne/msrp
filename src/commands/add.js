@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } = require('discord.js');
-const { isStaff, parseTicketTopic } = require('../utils/ticketHandler');
+const { isStaff, getTicketMetadata } = require('../utils/ticketHandler');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -27,7 +27,7 @@ module.exports = {
     } catch (e) {}
 
     const channel = interaction.channel;
-    const metadata = parseTicketTopic(channel.topic);
+    const metadata = await getTicketMetadata(channel);
 
     if (!metadata) {
       return interaction.editReply({
@@ -45,7 +45,6 @@ module.exports = {
     const targetUserIdInput = interaction.options.getString('user_id');
 
     if (!targetUser && targetUserIdInput) {
-      // Clean ID in case user pasted <@123456>
       const cleanId = targetUserIdInput.replace(/[<@!>]/g, '').trim();
       targetUser = await interaction.client.users.fetch(cleanId).catch(() => null);
     }

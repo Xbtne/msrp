@@ -9,7 +9,7 @@ const {
   handleTicketUnclaim,
   handleTicketCloseRequest,
   handleTicketTranscript,
-  parseTicketTopic
+  getTicketMetadata
 } = require('../utils/ticketHandler');
 
 module.exports = {
@@ -48,7 +48,7 @@ module.exports = {
   async execute(interaction) {
     const subcommand = interaction.options.getSubcommand();
     const channel = interaction.channel;
-    const metadata = parseTicketTopic(channel.topic);
+    const metadata = await getTicketMetadata(channel);
 
     if (!metadata) {
       return interaction.reply({
@@ -85,17 +85,29 @@ module.exports = {
         });
       }
 
-      await channel.permissionOverwrites.edit(targetUser.id, {
-        ViewChannel: true,
-        SendMessages: true,
-        AttachFiles: true,
-        EmbedLinks: true,
-        ReadMessageHistory: true
-      });
+      try {
+        await channel.permissionOverwrites.edit(targetUser.id, {
+          ViewChannel: true,
+          SendMessages: true,
+          AttachFiles: true,
+          EmbedLinks: true,
+          ReadMessageHistory: true
+        });
 
-      return interaction.editReply({
-        content: `✅ Added <@${targetUser.id}> to the ticket!`
-      });
+        const addEmbed = new EmbedBuilder()
+          .setTitle('👤 User Added to Ticket')
+          .setDescription(`**<@${targetUser.id}>** (${targetUser.tag}) has been added to this ticket by <@${interaction.user.id}>.`)
+          .setColor(0x57F287)
+          .setTimestamp();
+
+        return interaction.editReply({
+          embeds: [addEmbed]
+        });
+      } catch (err) {
+        return interaction.editReply({
+          content: `❌ Failed to add user to ticket: ${err.message}`
+        });
+      }
     } else if (subcommand === 'remove') {
       try {
         if (!interaction.deferred && !interaction.replied) {
@@ -118,15 +130,27 @@ module.exports = {
 
       if (targetUser.id === metadata.ownerId) {
         return interaction.editReply({
-          content: '❌ You cannot remove the ticket owner from their own ticket.'
+          content: '❌ You cannot remove the ticket creator from their own ticket.'
         });
       }
 
-      await channel.permissionOverwrites.delete(targetUser.id);
+      try {
+        await channel.permissionOverwrites.delete(targetUser.id);
 
-      return interaction.editReply({
-        content: `✅ Removed <@${targetUser.id}> from the ticket.`
-      });
+        const removeEmbed = new EmbedBuilder()
+          .setTitle('👤 User Removed from Ticket')
+          .setDescription(`**<@${targetUser.id}>** (${targetUser.tag}) has been removed from this ticket by <@${interaction.user.id}>.`)
+          .setColor(0xED4245)
+          .setTimestamp();
+
+        return interaction.editReply({
+          embeds: [removeEmbed]
+        });
+      } catch (err) {
+        return interaction.editReply({
+          content: `❌ Failed to remove user from ticket: ${err.message}`
+        });
+      }
     }
   }
 };

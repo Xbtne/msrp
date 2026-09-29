@@ -24,9 +24,19 @@ const { handleDashboardRequest } = require('./utils/dashboard');
 
 // Web Dashboard & HTTP health check server for Render
 const port = process.env.PORT || 3000;
-http.createServer((req, res) => {
+const server = http.createServer((req, res) => {
   handleDashboardRequest(req, res, client);
-}).listen(port, () => {
+});
+
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.warn(`⚠️ Port ${port} is in use; skipping dashboard listen.`);
+  } else {
+    console.error('⚠️ HTTP Server error:', err.message);
+  }
+});
+
+server.listen(port, () => {
   console.log(`🌐 Web Dashboard listening on port ${port}`);
 });
 
